@@ -137,12 +137,18 @@ export default function AddPage() {
 
           {/* 가격 */}
           <Field label="가격" required error={submitted && !priceStr ? "가격을 입력해주세요." : ""}>
-            <Input
-              value={priceStr ? `${priceStr}원` : ""}
-              onChange={(v) => setPriceStr(formatNumberInput(v))}
-              placeholder="예: 15,000원"
-              inputMode="numeric"
-            />
+            <div className="relative">
+              <input
+                value={priceStr}
+                onChange={(e) => setPriceStr(formatNumberInput(e.target.value))}
+                placeholder="예: 15,000"
+                inputMode="numeric"
+                className="w-full rounded-lg border border-border bg-background py-2.5 pl-3 pr-9 text-sm outline-none focus:border-primary"
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                원
+              </span>
+            </div>
           </Field>
 
           {/* 분류 */}

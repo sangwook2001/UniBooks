@@ -122,11 +122,8 @@ export default function ProductPage() {
                 ) : null}
               </div>
 
-              {/* 하단: 가격 */}
-              <p className="text-3xl font-bold text-foreground">{formatPrice(post.price)}</p>
-
               {/* 조회수 · 찜 · 댓글 수 */}
-              <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Eye className="size-4" />
                   {post.views.toLocaleString()}
@@ -141,8 +138,11 @@ export default function ProductPage() {
                 </span>
               </div>
 
+              {/* 가격 (연락하기 오른쪽 위) */}
+              <p className="mt-4 text-right text-3xl font-bold text-foreground">{formatPrice(post.price)}</p>
+
               {/* 액션 */}
-              <div className="mt-4 flex items-center gap-2">
+              <div className="mt-2 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleShare}

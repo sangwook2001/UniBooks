@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { BookOpen } from "lucide-react"
+import { BookOpen, Eye, Heart, MessageCircle } from "lucide-react"
 import type { Post } from "@/lib/store"
 import { formatPrice, postTag } from "@/lib/format"
 
@@ -37,7 +37,23 @@ export function ProductCard({ post }: { post: Post }) {
             {post.author} · {post.condition}
           </p>
         </div>
-        <p className="mt-2 text-base font-bold text-foreground">{formatPrice(post.price)}</p>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <p className="text-base font-bold text-foreground">{formatPrice(post.price)}</p>
+          <div className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-0.5">
+              <Eye className="size-3" />
+              {post.views.toLocaleString()}
+            </span>
+            <span className="flex items-center gap-0.5">
+              <Heart className="size-3" />
+              {post.likes.toLocaleString()}
+            </span>
+            <span className="flex items-center gap-0.5">
+              <MessageCircle className="size-3" />
+              {post.comments.length.toLocaleString()}
+            </span>
+          </div>
+        </div>
       </div>
     </Link>
   )
