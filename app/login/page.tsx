@@ -23,31 +23,13 @@ export default function LoginPage() {
 
   const emailInvalid = touched && email.length > 0 && !EMAIL_RE.test(email)
 
-  function getFrom() {
-    if (typeof window === "undefined") return "/"
-    const f = new URLSearchParams(window.location.search).get("from")
-    return f && f.startsWith("/") ? f : "/"
-  }
-
-  function done() {
-    router.push(getFrom())
-  }
-
-  function goBack() {
-    router.push(getFrom())
-  }
-
-  function goSignup() {
-    router.push(`/signup?from=${encodeURIComponent(getFrom())}`)
-  }
-
   function handleLogin() {
     setTouched(true)
     if (!EMAIL_RE.test(email)) return
     if (!pw) return
     const nick = email.toLowerCase() === "test@unibooks.kr" ? "테스터" : undefined
     login(email, nick)
-    done()
+    router.push("/")
   }
 
   return (
@@ -56,8 +38,8 @@ export default function LoginPage() {
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
           <button
             type="button"
-            onClick={goBack}
-            aria-label="뒤로가기"
+            onClick={() => router.push("/")}
+            aria-label="홈으로"
             className="rounded-md p-1 hover:bg-muted"
           >
             <ArrowLeft className="size-5" />
@@ -153,7 +135,7 @@ export default function LoginPage() {
                 <span className="self-center text-border">|</span>
                 <button
                   type="button"
-                  onClick={goSignup}
+                  onClick={() => router.push("/signup")}
                   className="min-w-0 flex-1 break-keep text-center font-medium leading-tight text-primary hover:underline"
                 >
                   회원가입
