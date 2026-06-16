@@ -53,6 +53,80 @@ const POSTS_KEY = "unibooks.posts"
 const RECENT_KEY = "unibooks.recent"
 const USER_KEY = "unibooks.user"
 
+function hashSchool(s: string): string {
+  let h = 0
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) >>> 0
+  }
+  return h.toString(36)
+}
+
+function demoPosts(school: string): Post[] {
+  const base = `s${hashSchool(school)}`
+  return [
+    {
+      id: `demo-${base}-1`,
+      title: "James Stewart 미분적분학 8판",
+      author: "James Stewart",
+      price: 18000,
+      condition: "상",
+      category: "전공",
+      department: "수학과",
+      grade: "1학년",
+      description: "필기 거의 없고 깨끗합니다. 직거래 선호해요.",
+      image: "/books/calculus.png",
+      school,
+      sellerId: `mathlover@unibooks.kr`,
+      createdAt: Date.now() - 1000 * 60 * 60 * 2,
+    },
+    {
+      id: `demo-${base}-2`,
+      title: "맨큐의 경제학 (Principles of Economics)",
+      author: "N. Gregory Mankiw",
+      price: 25000,
+      condition: "중",
+      category: "전공",
+      department: "경제학과",
+      grade: "2학년",
+      description: "형광펜 필기 일부 있습니다.",
+      image: "/books/econ.png",
+      school,
+      sellerId: `econ_master@unibooks.kr`,
+      createdAt: Date.now() - 1000 * 60 * 60 * 5,
+    },
+    {
+      id: `demo-${base}-3`,
+      title: "심리학개론 (Introduction to Psychology)",
+      author: "James Kalat",
+      price: 12000,
+      condition: "상",
+      category: "교양",
+      liberalGroup: "인성·교양",
+      grade: "1학년",
+      description: "교양 수업 들으면서 본 책이에요.",
+      image: "/books/psych.png",
+      school,
+      sellerId: `book_dealer@unibooks.kr`,
+      createdAt: Date.now() - 1000 * 60 * 60 * 24,
+    },
+    {
+      id: `demo-${base}-4`,
+      title: "College Writing 대학 영작문",
+      author: "Susan Anker",
+      price: 9000,
+      condition: "하",
+      category: "교양",
+      liberalGroup: "필수교양",
+      grade: "전체",
+      description: "필수 교양 영어 교재입니다.",
+      image: "/books/english.png",
+      school,
+      sellerId: `english99@unibooks.kr`,
+      createdAt: Date.now() - 1000 * 60 * 60 * 30,
+    },
+  ]
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
   const [school, setSchoolState] = useState<string | null>(null)
@@ -79,6 +153,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const setSchool = useCallback((s: string) => {
     setSchoolState(s)
     localStorage.setItem(SCHOOL_KEY, s)
+    setPosts((prev) => {
+      if (prev.some((p) => p.school === s)) return prev
+      const next = [...demoPosts(s), ...prev]
+      localStorage.setItem(POSTS_KEY, JSON.stringify(next))
+      return next
+    })
   }, [])
 
   const login = useCallback((email: string) => {
