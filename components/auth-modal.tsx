@@ -420,7 +420,7 @@ export function AuthModal({
             />
             <button
               type="button"
-              onClick={() => window.alert("가입된 정보가 있다면 ���내 메일��� 발송했습니다.")}
+              onClick={() => window.alert("가입된 정보가 있다면 안내 메일을 발송했습니다.")}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
               {view === "findId" ? "아이디 찾기" : "비밀번호 재설정 메일 받기"}
