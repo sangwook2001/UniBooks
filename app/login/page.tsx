@@ -24,7 +24,7 @@ export default function LoginPage() {
   const emailInvalid = touched && email.length > 0 && !EMAIL_RE.test(email)
 
   function done() {
-    router.back()
+    router.push("/")
   }
 
   function handleLogin() {
@@ -42,8 +42,8 @@ export default function LoginPage() {
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
           <button
             type="button"
-            onClick={() => router.back()}
-            aria-label="뒤로가기"
+            onClick={() => router.push("/")}
+            aria-label="홈으로"
             className="rounded-md p-1 hover:bg-muted"
           >
             <ArrowLeft className="size-5" />
