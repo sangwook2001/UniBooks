@@ -184,16 +184,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const p = localStorage.getItem(POSTS_KEY)
       if (p) {
         const parsed = JSON.parse(p) as Partial<Post>[]
-        setPosts(
-          parsed.map((x) => ({
+        const migrated = parsed
+          // 샘플 게시글은 가천대학교에만 남기고, 다른 학교의 옛 샘플은 제거합니다.
+          .filter((x) => !(String(x.id ?? "").startsWith("demo-") && x.school !== "가천대학교"))
+          .map((x) => ({
             views: 0,
             likes: 0,
             comments: [],
             sellerNickname: x.sellerId ? String(x.sellerId).split("@")[0] : "익명",
             openChatUrl: "",
             ...x,
-          })) as Post[],
-        )
+          })) as Post[]
+        setPosts(migrated)
+        localStorage.setItem(POSTS_KEY, JSON.stringify(migrated))
       }
       const r = localStorage.getItem(RECENT_KEY)
       if (r) setRecentIds(JSON.parse(r))

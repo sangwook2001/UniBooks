@@ -92,7 +92,9 @@ export function AuthModal({
     setLoginTouched(true)
     if (!EMAIL_RE.test(loginEmail)) return
     if (!loginPw) return
-    login(loginEmail)
+    // 테스트 전용 계정은 보기 좋은 닉네임으로 로그인합니다.
+    const nick = loginEmail.toLowerCase() === "test@unibooks.kr" ? "테스터" : undefined
+    login(loginEmail, nick)
     close()
   }
 
@@ -193,7 +195,7 @@ export function AuthModal({
               <button
                 type="button"
                 onClick={() => setView("findId")}
-                className="min-w-0 flex-1 text-center leading-tight hover:text-foreground"
+                className="min-w-0 flex-1 break-keep text-center leading-tight hover:text-foreground"
               >
                 아이디 찾기
               </button>
@@ -201,7 +203,7 @@ export function AuthModal({
               <button
                 type="button"
                 onClick={() => setView("findPw")}
-                className="min-w-0 flex-1 text-center leading-tight hover:text-foreground"
+                className="min-w-0 flex-1 break-keep text-center leading-tight hover:text-foreground"
               >
                 비밀번호 찾기
               </button>
@@ -209,7 +211,7 @@ export function AuthModal({
               <button
                 type="button"
                 onClick={() => setView("signup")}
-                className="min-w-0 flex-1 text-center font-medium leading-tight text-primary hover:underline"
+                className="min-w-0 flex-1 break-keep text-center font-medium leading-tight text-primary hover:underline"
               >
                 회원가입
               </button>
@@ -423,7 +425,7 @@ export function AuthModal({
             />
             <button
               type="button"
-              onClick={() => window.alert("가입된 정보가 있다면 ���내 메일을 발송했습니다.")}
+              onClick={() => window.alert("가입된 정보가 있다면 ���내 메일��� 발송했습니다.")}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
               {view === "findId" ? "아이디 찾기" : "비밀번호 재설정 메일 받기"}
