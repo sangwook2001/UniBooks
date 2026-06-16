@@ -189,19 +189,27 @@ export function AuthModal({
               로그인
             </button>
 
-            <div className="mt-1 flex items-center justify-center gap-3 text-xs text-muted-foreground">
-              <button type="button" onClick={() => setView("findId")} className="hover:text-foreground">
+            <div className="mt-1 flex items-stretch justify-center gap-2 text-xs text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => setView("findId")}
+                className="min-w-0 flex-1 text-center leading-tight hover:text-foreground"
+              >
                 아이디 찾기
               </button>
-              <span className="text-border">|</span>
-              <button type="button" onClick={() => setView("findPw")} className="hover:text-foreground">
+              <span className="self-center text-border">|</span>
+              <button
+                type="button"
+                onClick={() => setView("findPw")}
+                className="min-w-0 flex-1 text-center leading-tight hover:text-foreground"
+              >
                 비밀번호 찾기
               </button>
-              <span className="text-border">|</span>
+              <span className="self-center text-border">|</span>
               <button
                 type="button"
                 onClick={() => setView("signup")}
-                className="font-medium text-primary hover:underline"
+                className="min-w-0 flex-1 text-center font-medium leading-tight text-primary hover:underline"
               >
                 회원가입
               </button>
@@ -415,7 +423,7 @@ export function AuthModal({
             />
             <button
               type="button"
-              onClick={() => window.alert("가입된 정보가 있다면 안내 메일을 발송했습니다.")}
+              onClick={() => window.alert("가입된 정보가 있다면 ���내 메일을 발송했습니다.")}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
               {view === "findId" ? "아이디 찾기" : "비밀번호 재설정 메일 받기"}

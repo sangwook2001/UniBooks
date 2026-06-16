@@ -212,6 +212,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const setSchool = useCallback((s: string) => {
     setSchoolState(s)
     localStorage.setItem(SCHOOL_KEY, s)
+    // 샘플 게시글은 가천대학교에만 표시하고, 나머지 학교는 빈 저장소로 시작합니다.
+    if (s !== "가천대학교") return
     setPosts((prev) => {
       if (prev.some((p) => p.school === s)) return prev
       const next = [...demoPosts(s), ...prev]

@@ -84,12 +84,8 @@ export default function ProductPage() {
       {post && (
         <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
           <div className="flex flex-col gap-8 md:flex-row md:gap-10">
-            {/* 왼쪽: 큰 사진 + 필터 라벨 */}
+            {/* 왼쪽: 큰 사진 */}
             <div className="w-full md:w-1/2">
-              <span className="mb-2 inline-block rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
-                {postTag(post)}
-                {post.grade ? ` · ${post.grade}` : ""}
-              </span>
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted">
                 {post.image ? (
                   <Image src={post.image || "/placeholder.svg"} alt={post.title} fill className="object-cover" />
@@ -103,21 +99,31 @@ export default function ProductPage() {
 
             {/* 오른쪽: 정보 */}
             <div className="flex w-full flex-col md:w-1/2">
-              <h1 className="text-2xl font-bold leading-snug text-foreground text-balance">
+              {/* 상단: 학과 · 학년 */}
+              <span className="inline-block w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
+                {postTag(post)}
+                {post.grade ? ` · ${post.grade}` : ""}
+              </span>
+
+              {/* 제목 · 저자 (살짝 내려서) */}
+              <h1 className="mt-4 text-2xl font-bold leading-snug text-foreground text-balance">
                 {post.title}
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 저자 {post.author} · 상태 {post.condition}
               </p>
 
-              {/* 설명 (저자 밑) */}
-              {post.description && (
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                  {post.description}
-                </p>
-              )}
+              {/* 설명: 사진 가운데에 위치 (글이 길어지면 위아래로 늘어남) */}
+              <div className="flex flex-1 items-center py-6">
+                {post.description ? (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                    {post.description}
+                  </p>
+                ) : null}
+              </div>
 
-              <p className="mt-5 text-3xl font-bold text-foreground">{formatPrice(post.price)}</p>
+              {/* 하단: 가격 */}
+              <p className="text-3xl font-bold text-foreground">{formatPrice(post.price)}</p>
 
               {/* 조회수 · 찜 · 댓글 수 */}
               <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
