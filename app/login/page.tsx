@@ -27,6 +27,14 @@ export default function LoginPage() {
     router.push("/")
   }
 
+  function goBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back()
+    } else {
+      router.push("/")
+    }
+  }
+
   function handleLogin() {
     setTouched(true)
     if (!EMAIL_RE.test(email)) return
@@ -42,8 +50,8 @@ export default function LoginPage() {
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
           <button
             type="button"
-            onClick={() => router.push("/")}
-            aria-label="홈으로"
+            onClick={goBack}
+            aria-label="뒤로가기"
             className="rounded-md p-1 hover:bg-muted"
           >
             <ArrowLeft className="size-5" />
