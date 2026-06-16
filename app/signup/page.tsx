@@ -341,12 +341,13 @@ export default function SignupPage() {
               확인
             </button>
 
-            <Link
-              href="/login"
+            <button
+              type="button"
+              onClick={() => router.replace("/login")}
               className="text-center text-xs text-muted-foreground hover:text-foreground"
             >
               이미 계정이 있으신가요? 로그인
-            </Link>
+            </button>
           </div>
         </div>
       </div>

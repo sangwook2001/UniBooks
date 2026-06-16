@@ -145,12 +145,13 @@ export default function LoginPage() {
                   비밀번호 찾기
                 </button>
                 <span className="self-center text-border">|</span>
-                <Link
-                  href="/signup"
+                <button
+                  type="button"
+                  onClick={() => router.replace("/signup")}
                   className="min-w-0 flex-1 break-keep text-center font-medium leading-tight text-primary hover:underline"
                 >
                   회원가입
-                </Link>
+                </button>
               </div>
             </div>
           )}
