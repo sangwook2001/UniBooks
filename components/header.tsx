@@ -19,7 +19,7 @@ export function Header({
   onOpenSchool?: () => void
   showSearch?: boolean
 }) {
-  const { user, logout, school } = useStore()
+  const { user, school } = useStore()
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
 
   return (
@@ -66,24 +66,18 @@ export function Header({
             )}
 
             {user ? (
-              <>
-                <span className="hidden text-sm text-muted-foreground sm:inline">{user.nickname}</span>
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="hidden rounded-full border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted sm:inline-block"
-                >
-                  로그아웃
-                </button>
-                <button
-                  type="button"
-                  onClick={logout}
-                  aria-label="로그아웃"
-                  className="flex size-10 items-center justify-center rounded-full text-foreground hover:bg-muted sm:hidden"
-                >
-                  <User className="size-5" />
-                </button>
-              </>
+              <Link
+                href="/profile"
+                aria-label="마이페이지"
+                className="flex items-center gap-2 rounded-full px-2 py-1.5 text-foreground hover:bg-muted sm:border sm:border-border sm:px-3 sm:py-2"
+              >
+                <span className="hidden max-w-28 truncate text-sm font-medium sm:inline">
+                  {user.nickname}
+                </span>
+                <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary sm:size-6">
+                  <User className="size-4" />
+                </span>
+              </Link>
             ) : (
               <>
                 {/* 데스크톱 로그인 버튼 */}

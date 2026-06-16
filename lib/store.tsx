@@ -42,16 +42,16 @@ export type Post = {
   createdAt: number
 }
 
-type User = { id: string; email: string; nickname: string }
+type User = { id: string; email: string; nickname: string; school?: string }
 
 type StoreContextType = {
   ready: boolean
   school: string | null
   setSchool: (s: string) => void
   user: User | null
-  login: (email: string, nickname?: string) => void
+  login: (email: string, nickname?: string, school?: string) => void
   logout: () => void
-  registerUser: (email: string, nickname: string) => void
+  registerUser: (email: string, nickname: string, school: string) => void
   isNicknameTaken: (nickname: string) => boolean
   posts: Post[]
   addPost: (p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">) => Post
@@ -230,10 +230,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const login = useCallback((email: string, nickname?: string) => {
-    const u = { id: email, email, nickname: nickname ?? email.split("@")[0] }
+  const login = useCallback((email: string, nickname?: string, userSchool?: string) => {
+    const u: User = { id: email, email, nickname: nickname ?? email.split("@")[0], school: userSchool }
     setUser(u)
     localStorage.setItem(USER_KEY, JSON.stringify(u))
+    if (userSchool) {
+      setSchoolState(userSchool)
+      localStorage.setItem(SCHOOL_KEY, userSchool)
+    }
   }, [])
 
   const logout = useCallback(() => {
@@ -251,13 +255,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const registerUser = useCallback(
-    (email: string, nickname: string) => {
+    (email: string, nickname: string, userSchool: string) => {
       setNicknames((prev) => {
         const next = [...prev, nickname]
         localStorage.setItem(NICK_KEY, JSON.stringify(next))
         return next
       })
-      login(email, nickname)
+      login(email, nickname, userSchool)
     },
     [login],
   )

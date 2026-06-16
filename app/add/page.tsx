@@ -23,6 +23,9 @@ export default function AddPage() {
   const { school, addPost, user, ready } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // 게시글은 본인 계정에 등록된 학교(없으면 현재 선택된 학교)로만 등록됩니다.
+  const postSchool = user?.school ?? school ?? ""
+
   useEffect(() => {
     if (ready && !user) {
       window.alert("게시글을 등록하려면 로그인이 필요합니다.")
@@ -80,7 +83,7 @@ export default function AddPage() {
       openChatUrl: openChat.trim(),
       description: description.trim() || undefined,
       image: image ?? undefined,
-      school: school ?? "",
+      school: postSchool,
     })
     router.push(`/product/${post.id}`)
   }
@@ -98,6 +101,14 @@ export default function AddPage() {
 
       <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
         <div className="flex flex-col gap-6">
+          {/* 등록 학교 (본인 학교 고정) */}
+          <Field label="등록 학교">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-muted px-3 py-2.5 text-sm">
+              <span className="font-medium text-foreground">{postSchool || "학교 미설정"}</span>
+              <span className="text-xs text-muted-foreground">본인 학교에만 등록됩니다</span>
+            </div>
+          </Field>
+
           {/* 사진 */}
           <Field label="사진" required error={submitted && !image ? "사진을 등록해주세요." : ""}>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickImage} />

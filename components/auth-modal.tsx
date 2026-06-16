@@ -1,9 +1,10 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { X, Eye, EyeOff, Check } from "lucide-react"
+import { X, Eye, EyeOff, Check, GraduationCap, ChevronDown } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { cn } from "@/lib/utils"
+import { SchoolSelectModal } from "@/components/school-select-modal"
 
 type View = "login" | "signup" | "findId" | "findPw"
 
@@ -43,8 +44,8 @@ export function AuthModal({
   // signup state
   const [email, setEmail] = useState("")
   const [nickname, setNickname] = useState("")
-  const [code, setCode] = useState("")
-  const [sentCode, setSentCode] = useState<string | null>(null)
+  const [signupSchool, setSignupSchool] = useState<string | null>(null)
+  const [schoolModalOpen, setSchoolModalOpen] = useState(false)
   const [verified, setVerified] = useState(false)
   const [pw, setPw] = useState("")
   const [pw2, setPw2] = useState("")
@@ -63,8 +64,8 @@ export function AuthModal({
   const nickAvailable = nickTrim.length >= 2 && !nickTaken
 
   const signupValid = useMemo(
-    () => verified && nickAvailable && pwAllValid && pw === pw2 && pw2.length > 0,
-    [verified, nickAvailable, pwAllValid, pw, pw2],
+    () => !!signupSchool && verified && nickAvailable && pwAllValid && pw === pw2 && pw2.length > 0,
+    [signupSchool, verified, nickAvailable, pwAllValid, pw, pw2],
   )
 
   if (!open) return null
@@ -76,8 +77,7 @@ export function AuthModal({
     setLoginTouched(false)
     setEmail("")
     setNickname("")
-    setCode("")
-    setSentCode(null)
+    setSignupSchool(null)
     setVerified(false)
     setPw("")
     setPw2("")
@@ -98,21 +98,21 @@ export function AuthModal({
     close()
   }
 
-  function sendCode() {
-    if (!emailValid) return
-    // 데모용 본인확인: 6자리 코드를 생성해 화면에 표시
-    const c = String(Math.floor(100000 + Math.random() * 900000))
-    setSentCode(c)
-    setVerified(false)
-  }
-
-  function verifyCode() {
-    if (code && code === sentCode) setVerified(true)
+  function handleVerifySchool() {
+    if (!signupSchool) {
+      window.alert("먼저 학교를 선택해주세요.")
+      return
+    }
+    if (!emailValid) {
+      window.alert("학교 이메일을 올바르게 입력해주세요.")
+      return
+    }
+    setVerified(true)
   }
 
   function handleSignup() {
-    if (!signupValid) return
-    registerUser(email, nickTrim)
+    if (!signupValid || !signupSchool) return
+    registerUser(email, nickTrim, signupSchool)
     window.alert("회원가입이 완료되었습니다.")
     close()
   }
@@ -221,67 +221,62 @@ export function AuthModal({
 
         {view === "signup" && (
           <div className="flex flex-col gap-3">
-            {/* 아이디(이메일) + 본인확인 */}
+            {/* 내 대학교 선택 + 인증 */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                아이디 (이메일)
-              </label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">내 대학교</label>
               <div className="flex gap-2">
-                <input
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value)
-                    setVerified(false)
-                    setSentCode(null)
-                  }}
-                  placeholder="id@unibooks.kr"
-                  className={cn(
-                    "w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none",
-                    email.length > 0 && !emailValid
-                      ? "border-destructive"
-                      : "border-border focus:border-primary",
-                  )}
-                />
                 <button
                   type="button"
-                  disabled={!emailValid || verified}
-                  onClick={sendCode}
+                  onClick={() => setSchoolModalOpen(true)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2.5 text-sm outline-none",
+                    signupSchool ? "border-border text-foreground" : "border-border text-muted-foreground",
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <GraduationCap className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{signupSchool ?? "대학교 선택하기"}</span>
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!signupSchool || !emailValid || verified}
+                  onClick={handleVerifySchool}
                   className="shrink-0 rounded-lg border border-primary px-3 text-xs font-medium text-primary disabled:opacity-40"
                 >
-                  {sentCode ? "재전송" : "인증요청"}
+                  {verified ? "인증완료" : "인증"}
                 </button>
               </div>
+            </div>
+
+            {/* 아이디(학교 이메일) */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                아이디 (학교 이메일)
+              </label>
+              <input
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  setVerified(false)
+                }}
+                placeholder="id@university.ac.kr"
+                className={cn(
+                  "w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none",
+                  email.length > 0 && !emailValid
+                    ? "border-destructive"
+                    : "border-border focus:border-primary",
+                )}
+              />
               {email.length > 0 && !emailValid && (
                 <p className="mt-1 text-xs text-destructive">이메일 형식으로 입력해주세요.</p>
               )}
-              {sentCode && !verified && (
-                <p className="mt-1 text-xs text-primary">
-                  데모 인증번호: <span className="font-semibold">{sentCode}</span> (실제 서비스에서는 메일로 발송됩니다)
-                </p>
-              )}
             </div>
 
-            {sentCode && !verified && (
-              <div className="flex gap-2">
-                <input
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="인증번호 6자리"
-                  inputMode="numeric"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-                />
-                <button
-                  type="button"
-                  onClick={verifyCode}
-                  className="shrink-0 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground"
-                >
-                  확인
-                </button>
-              </div>
-            )}
             {verified && (
               <p className="-mt-1 flex items-center gap-1 text-xs font-medium text-primary">
-                <Check className="size-3.5" /> 본인확인이 완료되었습니다.
+                <Check className="size-3.5" /> 학교 인증이 완료되었습니다.
               </p>
             )}
 
@@ -440,6 +435,17 @@ export function AuthModal({
           </div>
         )}
       </div>
+
+      <SchoolSelectModal
+        open={schoolModalOpen}
+        current={signupSchool}
+        onClose={() => setSchoolModalOpen(false)}
+        onConfirm={(s) => {
+          setSignupSchool(s)
+          setVerified(false)
+          setSchoolModalOpen(false)
+        }}
+      />
     </div>
   )
 }

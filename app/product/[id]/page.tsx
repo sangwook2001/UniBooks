@@ -20,6 +20,7 @@ import {
 import { useStore, type Comment as CommentType } from "@/lib/store"
 import { formatPrice, postTag } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { AuthModal } from "@/components/auth-modal"
 
 function timeAgoStr(ts: number) {
   const diff = Date.now() - ts
@@ -187,6 +188,7 @@ export default function ProductPage() {
     useStore()
   const post = getPost(params.id)
   const [chatOpen, setChatOpen] = useState(false)
+  const [authOpen, setAuthOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
@@ -239,6 +241,16 @@ export default function ProductPage() {
     }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handleLike() {
+    if (!post) return
+    if (!user) {
+      window.alert("찜하려면 로그인이 필요합니다.")
+      setAuthOpen(true)
+      return
+    }
+    toggleLike(post.id)
   }
 
   function handleReportClick() {
@@ -366,8 +378,8 @@ export default function ProductPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => toggleLike(post.id)}
-                  aria-label="찜하기"
+                onClick={handleLike}
+                aria-label="찜하기"
                   aria-pressed={liked}
                   className={cn(
                     "flex size-12 shrink-0 items-center justify-center rounded-xl border",
@@ -589,6 +601,8 @@ export default function ProductPage() {
           </div>
         </div>
       )}
+
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   )
 }
