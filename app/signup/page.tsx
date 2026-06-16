@@ -64,10 +64,6 @@ export default function SignupPage() {
     return f && f.startsWith("/") ? f : "/"
   }
 
-  function goBack() {
-    router.back()
-  }
-
   function goLogin() {
     router.push(`/login?from=${encodeURIComponent(getFrom())}`)
   }
@@ -115,7 +111,7 @@ export default function SignupPage() {
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
           <button
             type="button"
-            onClick={goBack}
+            onClick={goLogin}
             aria-label="뒤로가기"
             className="rounded-md p-1 hover:bg-muted"
           >

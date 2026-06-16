@@ -34,7 +34,7 @@ export default function LoginPage() {
   }
 
   function goBack() {
-    router.back()
+    router.push(getFrom())
   }
 
   function goSignup() {
