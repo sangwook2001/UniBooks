@@ -34,11 +34,11 @@ export default function LoginPage() {
   }
 
   function goBack() {
-    router.push(getFrom())
+    router.back()
   }
 
   function goSignup() {
-    router.replace(`/signup?from=${encodeURIComponent(getFrom())}`)
+    router.push(`/signup?from=${encodeURIComponent(getFrom())}`)
   }
 
   function handleLogin() {

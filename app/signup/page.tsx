@@ -65,11 +65,11 @@ export default function SignupPage() {
   }
 
   function goBack() {
-    router.push(getFrom())
+    router.back()
   }
 
   function goLogin() {
-    router.replace(`/login?from=${encodeURIComponent(getFrom())}`)
+    router.push(`/login?from=${encodeURIComponent(getFrom())}`)
   }
 
   function resetVerification() {
