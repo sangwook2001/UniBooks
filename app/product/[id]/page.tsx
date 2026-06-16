@@ -16,9 +16,11 @@ import {
   Flag,
   Copy,
   Check,
+  Pencil,
+  Trash2,
 } from "lucide-react"
 import { useStore, type Comment as CommentType } from "@/lib/store"
-import { formatPrice, postTag } from "@/lib/format"
+import { formatPrice, formatDate, postTag } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 function timeAgoStr(ts: number) {
@@ -184,7 +186,7 @@ function CommentNode({
 export default function ProductPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
-  const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user } =
+  const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user, deletePost } =
     useStore()
   const post = getPost(params.id)
   const [chatOpen, setChatOpen] = useState(false)
@@ -280,6 +282,22 @@ export default function ProductPage() {
   }
 
   const liked = post ? likedIds.includes(post.id) : false
+  const isOwner = !!post && !!user && post.sellerId === user.email
+
+  function handleEdit() {
+    if (!post) return
+    router.push(`/add?edit=${post.id}`)
+  }
+
+  function handleDelete() {
+    if (!post) return
+    if (window.confirm("이 상품을 삭제할까요? 삭제 후에는 되돌릴 수 없습니다.")) {
+      deletePost(post.id)
+      window.alert("상품이 삭제되었습니다.")
+      router.replace("/")
+    }
+  }
+
   const totalComments = post
     ? post.comments.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0)
     : 0
@@ -336,6 +354,28 @@ export default function ProductPage() {
               <p className="mt-2 text-sm text-muted-foreground">
                 저자 {post.author} · 상태 {post.condition.replace(/^상태\s*/, "")}
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">{formatDate(post.createdAt)} 등록</p>
+
+              {isOwner && (
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleEdit}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    <Pencil className="size-3.5" />
+                    수정
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="size-3.5" />
+                    삭제
+                  </button>
+                </div>
+              )}
 
               {/* 설명: 사진 가운데에 위치 (글이 길어지면 위아래로 늘어남) */}
               <div className="flex flex-1 items-center py-6">

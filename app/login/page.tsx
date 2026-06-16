@@ -135,7 +135,7 @@ export default function LoginPage() {
                 <span className="self-center text-border">|</span>
                 <button
                   type="button"
-                  onClick={() => router.push("/signup")}
+                  onClick={() => router.replace("/signup")}
                   className="min-w-0 flex-1 break-keep text-center font-medium leading-tight text-primary hover:underline"
                 >
                   회원가입

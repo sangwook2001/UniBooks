@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { ArrowLeft, ImagePlus, X } from "lucide-react"
@@ -20,8 +20,12 @@ import { cn } from "@/lib/utils"
 
 export default function AddPage() {
   const router = useRouter()
-  const { school, addPost, user, ready } = useStore()
+  const searchParams = useSearchParams()
+  const editId = searchParams.get("edit")
+  const { school, addPost, updatePost, getPost, user, ready } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
+  const editingPost = editId ? getPost(editId) : undefined
+  const isEdit = !!editId
 
   // 게시글은 본인 계정에 등록된 학교(없으면 현재 선택된 학교)로만 등록됩니다.
   const postSchool = user?.school ?? school ?? ""
@@ -32,6 +36,20 @@ export default function AddPage() {
       router.replace("/")
     }
   }, [ready, user, router])
+
+  // 수정 모드: 본인 게시글이 아니면 차단
+  useEffect(() => {
+    if (ready && user && editId) {
+      const p = getPost(editId)
+      if (!p) {
+        window.alert("게시글을 찾을 수 없습니다.")
+        router.replace("/")
+      } else if (p.sellerId !== user.email) {
+        window.alert("본인이 등록한 상품만 수정할 수 있습니다.")
+        router.replace(`/product/${editId}`)
+      }
+    }
+  }, [ready, user, editId, getPost, router])
 
   const [title, setTitle] = useState("")
   const [author, setAuthor] = useState("")
@@ -45,6 +63,25 @@ export default function AddPage() {
   const [description, setDescription] = useState("")
   const [image, setImage] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const prefilledRef = useRef(false)
+
+  // 수정 모드일 때 폼을 한 번 채워줍니다.
+  useEffect(() => {
+    if (editingPost && !prefilledRef.current) {
+      prefilledRef.current = true
+      setTitle(editingPost.title)
+      setAuthor(editingPost.author)
+      setPriceStr(editingPost.price ? editingPost.price.toLocaleString("ko-KR") : "")
+      setCategory(editingPost.category)
+      setDepartment(editingPost.department ?? "")
+      setLiberalGroup(editingPost.liberalGroup ?? "")
+      setGrade(editingPost.grade ?? "")
+      setCondition(editingPost.condition)
+      setOpenChat(editingPost.openChatUrl)
+      setDescription(editingPost.description ?? "")
+      setImage(editingPost.image ?? null)
+    }
+  }, [editingPost])
 
   const showDeptGrade = category === "전공" || category === "교양"
 
@@ -71,7 +108,7 @@ export default function AddPage() {
   function handleSubmit() {
     setSubmitted(true)
     if (missing) return
-    const post = addPost({
+    const data = {
       title: title.trim(),
       author: author.trim(),
       price: parseNumber(priceStr),
@@ -84,7 +121,13 @@ export default function AddPage() {
       description: description.trim() || undefined,
       image: image ?? undefined,
       school: postSchool,
-    })
+    }
+    if (isEdit && editId) {
+      updatePost(editId, data)
+      router.push(`/product/${editId}`)
+      return
+    }
+    const post = addPost(data)
     router.push(`/product/${post.id}`)
   }
 
@@ -95,7 +138,7 @@ export default function AddPage() {
           <Link href="/" aria-label="뒤로가기" className="rounded-md p-1 hover:bg-muted">
             <ArrowLeft className="size-5" />
           </Link>
-          <h1 className="text-lg font-semibold text-foreground">중고책 등록하기</h1>
+          <h1 className="text-lg font-semibold text-foreground">{isEdit ? "상품 수정하기" : "중고책 등록하기"}</h1>
         </div>
       </header>
 
@@ -273,7 +316,7 @@ export default function AddPage() {
             onClick={handleSubmit}
             className="w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
           >
-            등록하기
+            {isEdit ? "수정 완료" : "등록하기"}
           </button>
         </div>
       </main>

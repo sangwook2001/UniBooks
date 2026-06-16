@@ -55,6 +55,8 @@ type StoreContextType = {
   isNicknameTaken: (nickname: string) => boolean
   posts: Post[]
   addPost: (p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">) => Post
+  updatePost: (id: string, patch: Partial<Omit<Post, "id" | "createdAt" | "sellerId">>) => void
+  deletePost: (id: string) => void
   getPost: (id: string) => Post | undefined
   incrementViews: (id: string) => void
   toggleLike: (id: string) => void
@@ -314,6 +316,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return next
   }, [])
 
+  const updatePost = useCallback(
+    (id: string, patch: Partial<Omit<Post, "id" | "createdAt" | "sellerId">>) => {
+      setPosts((prev) => persistPosts(prev.map((p) => (p.id === id ? { ...p, ...patch } : p))))
+    },
+    [persistPosts],
+  )
+
+  const deletePost = useCallback(
+    (id: string) => {
+      setPosts((prev) => persistPosts(prev.filter((p) => p.id !== id)))
+    },
+    [persistPosts],
+  )
+
   const incrementViews = useCallback(
     (id: string) => {
       setPosts((prev) => persistPosts(prev.map((p) => (p.id === id ? { ...p, views: p.views + 1 } : p))))
@@ -443,6 +459,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       isNicknameTaken,
       posts,
       addPost,
+      updatePost,
+      deletePost,
       getPost,
       incrementViews,
       toggleLike,
@@ -466,6 +484,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       isNicknameTaken,
       posts,
       addPost,
+      updatePost,
+      deletePost,
       getPost,
       incrementViews,
       toggleLike,

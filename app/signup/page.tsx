@@ -101,7 +101,7 @@ export default function SignupPage() {
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
           <button
             type="button"
-            onClick={() => router.push("/login")}
+            onClick={() => router.replace("/login")}
             aria-label="뒤로가기"
             className="rounded-md p-1 hover:bg-muted"
           >
@@ -335,7 +335,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => router.push("/login")}
+              onClick={() => router.replace("/login")}
               className="text-center text-xs text-muted-foreground hover:text-foreground"
             >
               이미 계정이 있으신가요? 로그인
