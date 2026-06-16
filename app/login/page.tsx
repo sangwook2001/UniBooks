@@ -23,16 +23,22 @@ export default function LoginPage() {
 
   const emailInvalid = touched && email.length > 0 && !EMAIL_RE.test(email)
 
+  function getFrom() {
+    if (typeof window === "undefined") return "/"
+    const f = new URLSearchParams(window.location.search).get("from")
+    return f && f.startsWith("/") ? f : "/"
+  }
+
   function done() {
-    router.push("/")
+    router.push(getFrom())
   }
 
   function goBack() {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back()
-    } else {
-      router.push("/")
-    }
+    router.push(getFrom())
+  }
+
+  function goSignup() {
+    router.replace(`/signup?from=${encodeURIComponent(getFrom())}`)
   }
 
   function handleLogin() {
@@ -147,7 +153,7 @@ export default function LoginPage() {
                 <span className="self-center text-border">|</span>
                 <button
                   type="button"
-                  onClick={() => router.replace("/signup")}
+                  onClick={goSignup}
                   className="min-w-0 flex-1 break-keep text-center font-medium leading-tight text-primary hover:underline"
                 >
                   회원가입

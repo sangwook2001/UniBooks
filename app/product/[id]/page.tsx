@@ -246,7 +246,7 @@ export default function ProductPage() {
     if (!post) return
     if (!user) {
       window.alert("찜하려면 로그인이 필요합니다.")
-      router.push("/login")
+      router.push(`/login?from=${encodeURIComponent(`/product/${params.id}`)}`)
       return
     }
     toggleLike(post.id)

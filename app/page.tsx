@@ -27,7 +27,7 @@ export default function HomePage() {
   function handleAddClick() {
     if (!user) {
       window.alert("게시글을 등록하려면 로그인이 필요합니다.")
-      router.push("/login")
+      router.push("/login?from=%2F")
       return
     }
     router.push("/add")
@@ -86,7 +86,7 @@ export default function HomePage() {
           <Header
             query={query}
             onQueryChange={setQuery}
-            onOpenAuth={() => router.push("/login")}
+            onOpenAuth={() => router.push("/login?from=%2F")}
             onOpenSchool={() => setSchoolOpen(true)}
           />
 

@@ -58,12 +58,18 @@ export default function SignupPage() {
     [signupSchool, verified, nickAvailable, pwAllValid, pw, pw2],
   )
 
+  function getFrom() {
+    if (typeof window === "undefined") return "/"
+    const f = new URLSearchParams(window.location.search).get("from")
+    return f && f.startsWith("/") ? f : "/"
+  }
+
   function goBack() {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back()
-    } else {
-      router.push("/login")
-    }
+    router.push(getFrom())
+  }
+
+  function goLogin() {
+    router.replace(`/login?from=${encodeURIComponent(getFrom())}`)
   }
 
   function resetVerification() {
@@ -100,7 +106,7 @@ export default function SignupPage() {
     if (!signupValid || !signupSchool) return
     registerUser(email, nickTrim, signupSchool)
     window.alert("회원가입이 완료되었습니다.")
-    router.push("/")
+    router.push(getFrom())
   }
 
   return (
@@ -343,7 +349,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => router.replace("/login")}
+              onClick={goLogin}
               className="text-center text-xs text-muted-foreground hover:text-foreground"
             >
               이미 계정이 있으신가요? 로그인
