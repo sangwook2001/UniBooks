@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { cn } from "@/lib/utils"
 
@@ -37,20 +37,34 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-10">
-      <div className="w-full max-w-sm">
-        <Link href="/" className="mb-8 flex flex-col items-center gap-3">
+    <main className="min-h-screen bg-background">
+      <header className="sticky top-0 z-40 border-b border-border bg-card">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="뒤로가기"
+            className="rounded-md p-1 hover:bg-muted"
+          >
+            <ArrowLeft className="size-5" />
+          </button>
+          <span className="text-lg font-semibold text-foreground">로그인</span>
+        </div>
+      </header>
+
+      <div className="mx-auto flex w-full max-w-sm flex-col px-5 py-8 sm:py-10">
+        <Link href="/" className="mb-6 flex flex-col items-center gap-2 sm:mb-8 sm:gap-3">
           <Image
             src="/unibooks-logo.png"
             alt="UniBooks 로고"
             width={56}
             height={56}
-            className="size-14"
+            className="size-12 sm:size-14"
           />
-          <span className="text-2xl font-bold tracking-tight text-foreground">UniBooks</span>
+          <span className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">UniBooks</span>
         </Link>
 
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
           <h1 className="mb-5 text-lg font-semibold text-foreground">
             {view === "login" && "로그인"}
             {view === "findId" && "아이디 찾기"}
