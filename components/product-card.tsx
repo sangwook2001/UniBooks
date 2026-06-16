@@ -2,10 +2,13 @@
 
 import Link from "next/link"
 import { BookOpen, Eye, Heart, MessageCircle } from "lucide-react"
-import type { Post } from "@/lib/store"
+import { useStore, type Post } from "@/lib/store"
 import { formatPrice, postTag } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 export function ProductCard({ post }: { post: Post }) {
+  const { likedIds } = useStore()
+  const liked = likedIds.includes(post.id)
   return (
     <Link
       href={`/product/${post.id}`}
@@ -45,7 +48,7 @@ export function ProductCard({ post }: { post: Post }) {
               {post.views.toLocaleString()}
             </span>
             <span className="flex items-center gap-0.5">
-              <Heart className="size-3" />
+              <Heart className={cn("size-3", liked && "fill-primary text-primary")} />
               {post.likes.toLocaleString()}
             </span>
             <span className="flex items-center gap-0.5">

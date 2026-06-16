@@ -13,9 +13,11 @@ import type { Category } from "./data"
 
 export type Comment = {
   id: string
+  authorId?: string // 작성자 이메일(판매자 여부 판별용)
   author: string // 닉네임
   text: string
   createdAt: number
+  replies?: Comment[]
 }
 
 export type Post = {
@@ -58,6 +60,9 @@ type StoreContextType = {
   toggleLike: (id: string) => void
   likedIds: string[]
   addComment: (id: string, text: string) => void
+  addReply: (postId: string, commentId: string, text: string) => void
+  editComment: (postId: string, commentId: string, text: string) => void
+  deleteComment: (postId: string, commentId: string) => void
   recentIds: string[]
   pushRecent: (id: string) => void
   removeRecent: (id: string) => void
@@ -295,34 +300,96 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const toggleLike = useCallback(
     (id: string) => {
-      setLikedIds((prevLiked) => {
-        const liked = prevLiked.includes(id)
-        const nextLiked = liked ? prevLiked.filter((x) => x !== id) : [...prevLiked, id]
-        localStorage.setItem(LIKED_KEY, JSON.stringify(nextLiked))
-        setPosts((prev) =>
-          persistPosts(
-            prev.map((p) => (p.id === id ? { ...p, likes: Math.max(0, p.likes + (liked ? -1 : 1)) } : p)),
-          ),
-        )
-        return nextLiked
-      })
+      const liked = likedIds.includes(id)
+      const nextLiked = liked ? likedIds.filter((x) => x !== id) : [...likedIds, id]
+      setLikedIds(nextLiked)
+      localStorage.setItem(LIKED_KEY, JSON.stringify(nextLiked))
+      setPosts((prev) =>
+        persistPosts(
+          prev.map((p) => (p.id === id ? { ...p, likes: Math.max(0, p.likes + (liked ? -1 : 1)) } : p)),
+        ),
+      )
     },
-    [persistPosts],
+    [likedIds, persistPosts],
+  )
+
+  const makeComment = useCallback(
+    (text: string): Comment => ({
+      id: Math.random().toString(36).slice(2, 10),
+      authorId: user?.email,
+      author: user?.nickname ?? "익명",
+      text,
+      createdAt: Date.now(),
+      replies: [],
+    }),
+    [user],
   )
 
   const addComment = useCallback(
     (id: string, text: string) => {
-      const comment: Comment = {
-        id: Math.random().toString(36).slice(2, 10),
-        author: user?.nickname ?? "익명",
-        text,
-        createdAt: Date.now(),
-      }
+      const comment = makeComment(text)
       setPosts((prev) =>
         persistPosts(prev.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p))),
       )
     },
-    [user, persistPosts],
+    [makeComment, persistPosts],
+  )
+
+  const addReply = useCallback(
+    (postId: string, commentId: string, text: string) => {
+      const reply = makeComment(text)
+      setPosts((prev) =>
+        persistPosts(
+          prev.map((p) =>
+            p.id === postId
+              ? {
+                  ...p,
+                  comments: p.comments.map((c) =>
+                    c.id === commentId ? { ...c, replies: [...(c.replies ?? []), reply] } : c,
+                  ),
+                }
+              : p,
+          ),
+        ),
+      )
+    },
+    [makeComment, persistPosts],
+  )
+
+  const editComment = useCallback(
+    (postId: string, commentId: string, text: string) => {
+      const apply = (c: Comment): Comment =>
+        c.id === commentId
+          ? { ...c, text }
+          : { ...c, replies: c.replies ? c.replies.map(apply) : c.replies }
+      setPosts((prev) =>
+        persistPosts(prev.map((p) => (p.id === postId ? { ...p, comments: p.comments.map(apply) } : p))),
+      )
+    },
+    [persistPosts],
+  )
+
+  const deleteComment = useCallback(
+    (postId: string, commentId: string) => {
+      setPosts((prev) =>
+        persistPosts(
+          prev.map((p) =>
+            p.id === postId
+              ? {
+                  ...p,
+                  comments: p.comments
+                    .filter((c) => c.id !== commentId)
+                    .map((c) => ({
+                      ...c,
+                      replies: c.replies ? c.replies.filter((r) => r.id !== commentId) : c.replies,
+                    })),
+                }
+              : p,
+          ),
+        ),
+      )
+    },
+    [persistPosts],
   )
 
   const pushRecent = useCallback((id: string) => {
@@ -358,6 +425,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toggleLike,
       likedIds,
       addComment,
+      addReply,
+      editComment,
+      deleteComment,
       recentIds,
       pushRecent,
       removeRecent,
@@ -378,6 +448,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toggleLike,
       likedIds,
       addComment,
+      addReply,
+      editComment,
+      deleteComment,
       recentIds,
       pushRecent,
       removeRecent,

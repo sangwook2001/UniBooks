@@ -4,12 +4,24 @@ import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, BookOpen, Share2, Heart, MessageCircle, User, Eye, X, Flag } from "lucide-react"
-import { useStore } from "@/lib/store"
+import {
+  ArrowLeft,
+  BookOpen,
+  Share2,
+  Heart,
+  MessageCircle,
+  User,
+  Eye,
+  X,
+  Flag,
+  Copy,
+  Check,
+} from "lucide-react"
+import { useStore, type Comment as CommentType } from "@/lib/store"
 import { formatPrice, postTag } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
-function timeAgo(ts: number) {
+function timeAgoStr(ts: number) {
   const diff = Date.now() - ts
   const m = Math.floor(diff / 60000)
   if (m < 1) return "방금 전"
@@ -19,12 +31,164 @@ function timeAgo(ts: number) {
   return `${Math.floor(h / 24)}일 전`
 }
 
+function CommentNode({
+  comment,
+  postId,
+  sellerId,
+  currentUserId,
+  isReply = false,
+}: {
+  comment: CommentType
+  postId: string
+  sellerId: string
+  currentUserId?: string
+  isReply?: boolean
+}) {
+  const { user, addReply, editComment, deleteComment } = useStore()
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState(comment.text)
+  const [replying, setReplying] = useState(false)
+  const [replyText, setReplyText] = useState("")
+
+  const isSeller = !!comment.authorId && comment.authorId === sellerId
+  const isMine = !!comment.authorId && comment.authorId === currentUserId
+
+  function saveEdit() {
+    if (!editText.trim()) return
+    editComment(postId, comment.id, editText.trim())
+    setEditing(false)
+  }
+
+  function submitReply() {
+    if (!user) {
+      window.alert("답글을 작성하려면 로그인이 필요합니다.")
+      return
+    }
+    if (!replyText.trim()) return
+    addReply(postId, comment.id, replyText.trim())
+    setReplyText("")
+    setReplying(false)
+  }
+
+  return (
+    <li className="flex gap-3">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <User className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-foreground">{comment.author}</span>
+          {isSeller && (
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+              판매자
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground">{timeAgoStr(comment.createdAt)}</span>
+        </div>
+
+        {editing ? (
+          <div className="mt-1 flex gap-2">
+            <input
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <button
+              type="button"
+              onClick={saveEdit}
+              className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
+            >
+              저장
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false)
+                setEditText(comment.text)
+              }}
+              className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-muted"
+            >
+              취소
+            </button>
+          </div>
+        ) : (
+          <p className="mt-0.5 whitespace-pre-wrap text-sm text-foreground">{comment.text}</p>
+        )}
+
+        {!editing && (
+          <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+            {!isReply && (
+              <button type="button" onClick={() => setReplying((v) => !v)} className="hover:text-foreground">
+                답글
+              </button>
+            )}
+            {isMine && (
+              <>
+                <button type="button" onClick={() => setEditing(true)} className="hover:text-foreground">
+                  수정
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("댓글을 삭제할까요?")) deleteComment(postId, comment.id)
+                  }}
+                  className="hover:text-destructive"
+                >
+                  삭제
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {replying && (
+          <div className="mt-2 flex gap-2">
+            <input
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitReply()
+              }}
+              placeholder="답글을 입력하세요"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <button
+              type="button"
+              onClick={submitReply}
+              className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
+            >
+              등록
+            </button>
+          </div>
+        )}
+
+        {comment.replies && comment.replies.length > 0 && (
+          <ul className="mt-3 flex flex-col gap-3 border-l border-border pl-4">
+            {comment.replies.map((r) => (
+              <CommentNode
+                key={r.id}
+                comment={r}
+                postId={postId}
+                sellerId={sellerId}
+                currentUserId={currentUserId}
+                isReply
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </li>
+  )
+}
+
 export default function ProductPage() {
   const params = useParams<{ id: string }>()
   const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user } =
     useStore()
   const post = getPost(params.id)
   const [chatOpen, setChatOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [reportReason, setReportReason] = useState("")
   const [reportDetail, setReportDetail] = useState("")
@@ -50,14 +214,31 @@ export default function ProductPage() {
     )
   }
 
+  const shareUrl = typeof window !== "undefined" ? window.location.href : ""
+
   function handleShare() {
-    const url = typeof window !== "undefined" ? window.location.href : ""
-    if (navigator.share) {
-      navigator.share({ title: post?.title, url }).catch(() => {})
-    } else {
-      navigator.clipboard?.writeText(url)
-      window.alert("링크가 복사되었습니다.")
+    setCopied(false)
+    setShareOpen(true)
+  }
+
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+    } catch {
+      // 클립보드 접근이 막힌 환경(iframe 등) 대비 폴백
+      const ta = document.createElement("textarea")
+      ta.value = shareUrl
+      document.body.appendChild(ta)
+      ta.select()
+      try {
+        document.execCommand("copy")
+      } catch {
+        // ignore
+      }
+      document.body.removeChild(ta)
     }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   function handleReportClick() {
@@ -88,6 +269,9 @@ export default function ProductPage() {
   }
 
   const liked = post ? likedIds.includes(post.id) : false
+  const totalComments = post
+    ? post.comments.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0)
+    : 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -166,7 +350,7 @@ export default function ProductPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <MessageCircle className="size-4" />
-                  {post.comments.length.toLocaleString()}
+                  {totalComments.toLocaleString()}
                 </span>
               </div>
 
@@ -220,9 +404,7 @@ export default function ProductPage() {
 
           {/* 댓글 */}
           <section className="mt-10 border-t border-border pt-6">
-            <h2 className="mb-4 text-base font-semibold text-foreground">
-              댓글 {post.comments.length}
-            </h2>
+            <h2 className="mb-4 text-base font-semibold text-foreground">댓글 {totalComments}</h2>
 
             <div className="flex gap-2">
               <input
@@ -250,18 +432,13 @@ export default function ProductPage() {
                 </li>
               ) : (
                 post.comments.map((c) => (
-                  <li key={c.id} className="flex gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                      <User className="size-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">{c.author}</span>
-                        <span className="text-xs text-muted-foreground">{timeAgo(c.createdAt)}</span>
-                      </div>
-                      <p className="mt-0.5 whitespace-pre-wrap text-sm text-foreground">{c.text}</p>
-                    </div>
-                  </li>
+                  <CommentNode
+                    key={c.id}
+                    comment={c}
+                    postId={post.id}
+                    sellerId={post.sellerId}
+                    currentUserId={user?.email}
+                  />
                 ))
               )}
             </ul>
@@ -305,6 +482,43 @@ export default function ProductPage() {
               <MessageCircle className="size-5" />
               오픈 채팅 열기
             </a>
+          </div>
+        </div>
+      )}
+
+      {/* 공유하기 팝업 */}
+      {shareOpen && post && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setShareOpen(false)}
+            className="absolute inset-0 bg-foreground/40"
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">공유하기</h2>
+              <button
+                type="button"
+                onClick={() => setShareOpen(false)}
+                aria-label="닫기"
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground">이 상품 링크를 복사해서 공유하세요.</p>
+            <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2.5">
+              <p className="min-w-0 flex-1 truncate text-xs text-foreground">{shareUrl}</p>
+            </div>
+            <button
+              type="button"
+              onClick={copyShareLink}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              {copied ? <Check className="size-5" /> : <Copy className="size-5" />}
+              {copied ? "복사되었습니다" : "링크 복사하기"}
+            </button>
           </div>
         </div>
       )}
