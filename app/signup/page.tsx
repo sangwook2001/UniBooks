@@ -1,12 +1,13 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { X, Eye, EyeOff, Check, GraduationCap, ChevronDown } from "lucide-react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import Image from "next/image"
+import { Eye, EyeOff, Check, GraduationCap, ChevronDown } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { cn } from "@/lib/utils"
 import { SchoolSelectModal } from "@/components/school-select-modal"
-
-type View = "login" | "signup" | "findId" | "findPw"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -25,35 +26,24 @@ function strengthOf(pw: string): { label: string; level: number } {
   return { label: "", level: 0 }
 }
 
-export function AuthModal({
-  open,
-  onClose,
-}: {
-  open: boolean
-  onClose: () => void
-}) {
-  const { login, registerUser, isNicknameTaken } = useStore()
-  const [view, setView] = useState<View>("login")
+export default function SignupPage() {
+  const { registerUser, isNicknameTaken } = useStore()
+  const router = useRouter()
 
-  // login state
-  const [loginEmail, setLoginEmail] = useState("")
-  const [loginPw, setLoginPw] = useState("")
-  const [showLoginPw, setShowLoginPw] = useState(false)
-  const [loginTouched, setLoginTouched] = useState(false)
-
-  // signup state
-  const [email, setEmail] = useState("")
-  const [nickname, setNickname] = useState("")
   const [signupSchool, setSignupSchool] = useState<string | null>(null)
   const [schoolModalOpen, setSchoolModalOpen] = useState(false)
+  const [email, setEmail] = useState("")
+  const [codeSent, setCodeSent] = useState(false)
+  const [sentCode, setSentCode] = useState("")
+  const [code, setCode] = useState("")
   const [verified, setVerified] = useState(false)
+  const [nickname, setNickname] = useState("")
   const [pw, setPw] = useState("")
   const [pw2, setPw2] = useState("")
   const [showPw, setShowPw] = useState(false)
 
   const checks = passwordChecks(pw)
   const strength = strengthOf(pw)
-  const loginEmailInvalid = loginTouched && loginEmail.length > 0 && !EMAIL_RE.test(loginEmail)
   const emailValid = EMAIL_RE.test(email)
   const pwAllValid = checks.special && checks.number && checks.upper && pw.length >= 6
   const pwMismatch = pw2.length > 0 && pw !== pw2
@@ -68,37 +58,14 @@ export function AuthModal({
     [signupSchool, verified, nickAvailable, pwAllValid, pw, pw2],
   )
 
-  if (!open) return null
-
-  function reset() {
-    setView("login")
-    setLoginEmail("")
-    setLoginPw("")
-    setLoginTouched(false)
-    setEmail("")
-    setNickname("")
-    setSignupSchool(null)
+  function resetVerification() {
+    setCodeSent(false)
+    setSentCode("")
+    setCode("")
     setVerified(false)
-    setPw("")
-    setPw2("")
   }
 
-  function close() {
-    reset()
-    onClose()
-  }
-
-  function handleLogin() {
-    setLoginTouched(true)
-    if (!EMAIL_RE.test(loginEmail)) return
-    if (!loginPw) return
-    // 테스트 전용 계정은 보기 좋은 닉네임으로 로그인합니다.
-    const nick = loginEmail.toLowerCase() === "test@unibooks.kr" ? "테스터" : undefined
-    login(loginEmail, nick)
-    close()
-  }
-
-  function handleVerifySchool() {
+  function sendCode() {
     if (!signupSchool) {
       window.alert("먼저 학교를 선택해주세요.")
       return
@@ -107,147 +74,66 @@ export function AuthModal({
       window.alert("학교 이메일을 올바르게 입력해주세요.")
       return
     }
-    setVerified(true)
+    const c = String(Math.floor(100000 + Math.random() * 900000))
+    setSentCode(c)
+    setCodeSent(true)
+    setVerified(false)
+  }
+
+  function verifyCode() {
+    if (code.trim() === sentCode) {
+      setVerified(true)
+    } else {
+      window.alert("인증번호가 일치하지 않습니다.")
+    }
   }
 
   function handleSignup() {
     if (!signupValid || !signupSchool) return
     registerUser(email, nickTrim, signupSchool)
     window.alert("회원가입이 완료되었습니다.")
-    close()
+    if (typeof window !== "undefined" && window.opener && !window.opener.closed) {
+      window.close()
+    } else {
+      router.push("/")
+    }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="닫기"
-        onClick={close}
-        className="absolute inset-0 bg-foreground/40"
-      />
-      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">
-            {view === "login" && "로그인"}
-            {view === "signup" && "회원가입"}
-            {view === "findId" && "아이디 찾기"}
-            {view === "findPw" && "비밀번호 찾기"}
-          </h2>
-          <button
-            type="button"
-            onClick={close}
-            aria-label="닫기"
-            className="rounded-md p-1 text-muted-foreground hover:bg-muted"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-10">
+      <div className="w-full max-w-sm">
+        <Link href="/" className="mb-8 flex flex-col items-center gap-3">
+          <Image
+            src="/unibooks-logo.png"
+            alt="UniBooks 로고"
+            width={56}
+            height={56}
+            className="size-14"
+          />
+          <span className="text-2xl font-bold tracking-tight text-foreground">UniBooks</span>
+        </Link>
 
-        {view === "login" && (
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <h1 className="mb-5 text-lg font-semibold text-foreground">회원가입</h1>
+
           <div className="flex flex-col gap-3">
-            <div>
-              <input
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                onBlur={() => setLoginTouched(true)}
-                placeholder="아이디 (이메일)"
-                className={cn(
-                  "w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none",
-                  loginEmailInvalid
-                    ? "border-destructive"
-                    : "border-border focus:border-primary",
-                )}
-              />
-              {loginEmailInvalid && (
-                <p className="mt-1 text-xs text-destructive">
-                  이메일 형식으로 입력해주세요. (예: id@unibooks.kr)
-                </p>
-              )}
-            </div>
-
-            <div className="relative">
-              <input
-                type={showLoginPw ? "text" : "password"}
-                value={loginPw}
-                onChange={(e) => setLoginPw(e.target.value)}
-                placeholder="비밀번호"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 pr-10 text-sm outline-none focus:border-primary"
-              />
-              <button
-                type="button"
-                onClick={() => setShowLoginPw((v) => !v)}
-                aria-label="비밀번호 표시"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
-                {showLoginPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleLogin}
-              className="mt-1 w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
-            >
-              로그인
-            </button>
-
-            <div className="mt-1 flex items-stretch justify-center gap-2 text-xs text-muted-foreground">
-              <button
-                type="button"
-                onClick={() => setView("findId")}
-                className="min-w-0 flex-1 break-keep text-center leading-tight hover:text-foreground"
-              >
-                아이디 찾기
-              </button>
-              <span className="self-center text-border">|</span>
-              <button
-                type="button"
-                onClick={() => setView("findPw")}
-                className="min-w-0 flex-1 break-keep text-center leading-tight hover:text-foreground"
-              >
-                비밀번호 찾기
-              </button>
-              <span className="self-center text-border">|</span>
-              <button
-                type="button"
-                onClick={() => setView("signup")}
-                className="min-w-0 flex-1 break-keep text-center font-medium leading-tight text-primary hover:underline"
-              >
-                회원가입
-              </button>
-            </div>
-          </div>
-        )}
-
-        {view === "signup" && (
-          <div className="flex flex-col gap-3">
-            {/* 내 대학교 선택 + 인증 */}
+            {/* 내 대학교 선택 */}
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">내 대학교</label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSchoolModalOpen(true)}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2.5 text-sm outline-none",
-                    signupSchool ? "border-border text-foreground" : "border-border text-muted-foreground",
-                  )}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <GraduationCap className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{signupSchool ?? "대학교 선택하기"}</span>
-                  </span>
-                  <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-                </button>
-                <button
-                  type="button"
-                  disabled={!signupSchool || !emailValid || verified}
-                  onClick={handleVerifySchool}
-                  className="shrink-0 rounded-lg border border-primary px-3 text-xs font-medium text-primary disabled:opacity-40"
-                >
-                  {verified ? "인증완료" : "인증"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setSchoolModalOpen(true)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2.5 text-sm outline-none",
+                  signupSchool ? "border-border text-foreground" : "border-border text-muted-foreground",
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <GraduationCap className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{signupSchool ?? "대학교 선택하기"}</span>
+                </span>
+                <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+              </button>
             </div>
 
             {/* 아이디(학교 이메일) */}
@@ -259,7 +145,7 @@ export function AuthModal({
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
-                  setVerified(false)
+                  resetVerification()
                 }}
                 placeholder="id@university.ac.kr"
                 className={cn(
@@ -274,9 +160,48 @@ export function AuthModal({
               )}
             </div>
 
+            {/* 인증하기 (메일 아래) */}
+            {!verified && !codeSent && (
+              <button
+                type="button"
+                onClick={sendCode}
+                className="w-full rounded-lg border border-primary py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
+              >
+                인증하기
+              </button>
+            )}
+
+            {/* 인증번호 입력 + 인증하기 (아래로 밀림) */}
+            {codeSent && !verified && (
+              <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground">
+                  데모 인증번호: <span className="font-semibold text-foreground">{sentCode}</span>{" "}
+                  (실제 서비스에서는 학교 메일로 발송됩니다)
+                </p>
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") verifyCode()
+                  }}
+                  placeholder="인증번호 6자리 입력"
+                  inputMode="numeric"
+                  maxLength={6}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={verifyCode}
+                  className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+                >
+                  인증하기
+                </button>
+              </div>
+            )}
+
             {verified && (
-              <p className="-mt-1 flex items-center gap-1 text-xs font-medium text-primary">
-                <Check className="size-3.5" /> 학교 인증이 완료되었습니다.
+              <p className="flex items-center gap-1 text-xs font-medium text-primary">
+                <Check className="size-3.5" /> 인증되었습니다.
               </p>
             )}
 
@@ -309,9 +234,7 @@ export function AuthModal({
                   </span>
                 )}
               </div>
-              {nickTaken && (
-                <p className="mt-1 text-xs text-destructive">이미 사용 중인 닉네임입니다.</p>
-              )}
+              {nickTaken && <p className="mt-1 text-xs text-destructive">이미 사용 중인 닉네임입니다.</p>}
             </div>
 
             {/* 비밀번호 */}
@@ -388,9 +311,7 @@ export function AuthModal({
                   pwMismatch ? "border-destructive" : "border-border focus:border-primary",
                 )}
               />
-              {pwMismatch && (
-                <p className="mt-1 text-xs text-destructive">비밀번호가 일치하지 않습니다.</p>
-              )}
+              {pwMismatch && <p className="mt-1 text-xs text-destructive">비밀번호가 일치하지 않습니다.</p>}
             </div>
 
             <button
@@ -402,38 +323,14 @@ export function AuthModal({
               확인
             </button>
 
-            <button
-              type="button"
-              onClick={() => setView("login")}
+            <Link
+              href="/login"
               className="text-center text-xs text-muted-foreground hover:text-foreground"
             >
               이미 계정이 있으신가요? 로그인
-            </button>
+            </Link>
           </div>
-        )}
-
-        {(view === "findId" || view === "findPw") && (
-          <div className="flex flex-col gap-3">
-            <input
-              placeholder="가입한 이메일 주소"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            />
-            <button
-              type="button"
-              onClick={() => window.alert("가입된 정보가 있다면 안내 메일을 발송했습니다.")}
-              className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
-            >
-              {view === "findId" ? "아이디 찾기" : "비밀번호 재설정 메일 받기"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("login")}
-              className="text-center text-xs text-muted-foreground hover:text-foreground"
-            >
-              로그인으로 돌아가기
-            </button>
-          </div>
-        )}
+        </div>
       </div>
 
       <SchoolSelectModal
@@ -442,11 +339,11 @@ export function AuthModal({
         onClose={() => setSchoolModalOpen(false)}
         onConfirm={(s) => {
           setSignupSchool(s)
-          setVerified(false)
+          resetVerification()
           setSchoolModalOpen(false)
         }}
       />
-    </div>
+    </main>
   )
 }
 

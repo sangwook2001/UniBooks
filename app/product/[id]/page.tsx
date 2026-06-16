@@ -20,7 +20,7 @@ import {
 import { useStore, type Comment as CommentType } from "@/lib/store"
 import { formatPrice, postTag } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { AuthModal } from "@/components/auth-modal"
+import { openAuthWindow } from "@/lib/open-auth"
 
 function timeAgoStr(ts: number) {
   const diff = Date.now() - ts
@@ -188,7 +188,6 @@ export default function ProductPage() {
     useStore()
   const post = getPost(params.id)
   const [chatOpen, setChatOpen] = useState(false)
-  const [authOpen, setAuthOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
@@ -227,7 +226,7 @@ export default function ProductPage() {
     try {
       await navigator.clipboard.writeText(shareUrl)
     } catch {
-      // 클립보드 접근이 막힌 환경(iframe 등) 대비 폴백
+      // 클립보드 접근이 ��힌 환경(iframe 등) 대비 폴백
       const ta = document.createElement("textarea")
       ta.value = shareUrl
       document.body.appendChild(ta)
@@ -247,7 +246,7 @@ export default function ProductPage() {
     if (!post) return
     if (!user) {
       window.alert("찜하려면 로그인이 필요합니다.")
-      setAuthOpen(true)
+      openAuthWindow("/login")
       return
     }
     toggleLike(post.id)
@@ -602,7 +601,6 @@ export default function ProductPage() {
         </div>
       )}
 
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   )
 }

@@ -217,6 +217,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setReady(true)
   }, [])
 
+  // 로그인/회원가입이 새 창에서 일어나도 원래 창이 즉시 반영되도록 동기화합니다.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (!e.key) return
+      try {
+        if (e.key === USER_KEY) setUser(e.newValue ? JSON.parse(e.newValue) : null)
+        else if (e.key === SCHOOL_KEY) setSchoolState(e.newValue ?? null)
+        else if (e.key === POSTS_KEY) setPosts(e.newValue ? JSON.parse(e.newValue) : [])
+        else if (e.key === NICK_KEY) setNicknames(e.newValue ? JSON.parse(e.newValue) : [])
+        else if (e.key === LIKED_KEY) setLikedIds(e.newValue ? JSON.parse(e.newValue) : [])
+        else if (e.key === RECENT_KEY) setRecentIds(e.newValue ? JSON.parse(e.newValue) : [])
+      } catch {
+        // ignore
+      }
+    }
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
+  }, [])
+
   const setSchool = useCallback((s: string) => {
     setSchoolState(s)
     localStorage.setItem(SCHOOL_KEY, s)

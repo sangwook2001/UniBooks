@@ -6,8 +6,8 @@ import Image from "next/image"
 import { Plus } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { Header } from "@/components/header"
-import { AuthModal } from "@/components/auth-modal"
 import { SchoolSelectModal } from "@/components/school-select-modal"
+import { openAuthWindow } from "@/lib/open-auth"
 import { FilterBar, type Filters } from "@/components/filter-bar"
 import { ProductCard } from "@/components/product-card"
 import { RecentlyViewed } from "@/components/recently-viewed"
@@ -15,7 +15,6 @@ import { RecentlyViewed } from "@/components/recently-viewed"
 export default function HomePage() {
   const { ready, school, setSchool, posts, user } = useStore()
   const router = useRouter()
-  const [authOpen, setAuthOpen] = useState(false)
   const [schoolOpen, setSchoolOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [filters, setFilters] = useState<Filters>({
@@ -29,7 +28,7 @@ export default function HomePage() {
   function handleAddClick() {
     if (!user) {
       window.alert("게시글을 등록하려면 로그인이 필요합니다.")
-      setAuthOpen(true)
+      openAuthWindow("/login")
       return
     }
     router.push("/add")
@@ -88,7 +87,7 @@ export default function HomePage() {
           <Header
             query={query}
             onQueryChange={setQuery}
-            onOpenAuth={() => setAuthOpen(true)}
+            onOpenAuth={() => openAuthWindow("/login")}
             onOpenSchool={() => setSchoolOpen(true)}
           />
 
@@ -126,7 +125,6 @@ export default function HomePage() {
             추가하기
           </button>
 
-          <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
           <SchoolSelectModal
             open={schoolOpen}
             dismissible
