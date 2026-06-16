@@ -47,7 +47,7 @@ type StoreContextType = {
   school: string | null
   setSchool: (s: string) => void
   user: User | null
-  login: (email: string) => void
+  login: (email: string, nickname?: string) => void
   logout: () => void
   registerUser: (email: string, nickname: string) => void
   isNicknameTaken: (nickname: string) => boolean

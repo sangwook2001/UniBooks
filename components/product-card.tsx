@@ -37,7 +37,7 @@ export function ProductCard({ post }: { post: Post }) {
             {post.author} · {post.condition}
           </p>
         </div>
-        <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="mt-2 flex flex-col-reverse gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
           <p className="text-base font-bold text-foreground">{formatPrice(post.price)}</p>
           <div className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-0.5">

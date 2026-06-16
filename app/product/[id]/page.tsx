@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, BookOpen, Share2, Heart, MessageCircle, User, Eye, X } from "lucide-react"
+import { ArrowLeft, BookOpen, Share2, Heart, MessageCircle, User, Eye, X, Flag } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { formatPrice, postTag } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,9 @@ export default function ProductPage() {
     useStore()
   const post = getPost(params.id)
   const [chatOpen, setChatOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportReason, setReportReason] = useState("")
+  const [reportDetail, setReportDetail] = useState("")
   const [comment, setComment] = useState("")
   const viewedRef = useRef(false)
 
@@ -55,6 +58,22 @@ export default function ProductPage() {
       navigator.clipboard?.writeText(url)
       window.alert("링크가 복사되었습니다.")
     }
+  }
+
+  function handleReportClick() {
+    if (!user) {
+      window.alert("신고하려면 로그인이 필요합니다.")
+      return
+    }
+    setReportReason("")
+    setReportDetail("")
+    setReportOpen(true)
+  }
+
+  function handleSubmitReport() {
+    if (!reportReason) return
+    setReportOpen(false)
+    window.alert("정상 접수되었습니다.")
   }
 
   function handleSubmitComment() {
@@ -106,11 +125,21 @@ export default function ProductPage() {
               </span>
 
               {/* 제목 · 저자 (살짝 내려서) */}
-              <h1 className="mt-4 text-2xl font-bold leading-snug text-foreground text-balance">
-                {post.title}
-              </h1>
+              <div className="mt-4 flex items-start justify-between gap-3">
+                <h1 className="min-w-0 text-2xl font-bold leading-snug text-foreground text-balance">
+                  {post.title}
+                </h1>
+                <button
+                  type="button"
+                  onClick={handleReportClick}
+                  className="mt-1 flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+                >
+                  <Flag className="size-3.5" />
+                  신고하기
+                </button>
+              </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                저자 {post.author} · 상태 {post.condition}
+                저자 {post.author} · 상태 {post.condition.replace(/^상태\s*/, "")}
               </p>
 
               {/* 설명: 사진 가운데에 위치 (글이 길어지면 위아래로 늘어남) */}
@@ -122,8 +151,11 @@ export default function ProductPage() {
                 ) : null}
               </div>
 
-              {/* 조회수 · 찜 · 댓글 수 */}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              {/* 가격 (살짝 위로) */}
+              <p className="text-right text-3xl font-bold text-foreground">{formatPrice(post.price)}</p>
+
+              {/* 조회수 · 찜 · 댓글 수 (공유 버튼 바로 위) */}
+              <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Eye className="size-4" />
                   {post.views.toLocaleString()}
@@ -137,9 +169,6 @@ export default function ProductPage() {
                   {post.comments.length.toLocaleString()}
                 </span>
               </div>
-
-              {/* 가격 (연락하기 오른쪽 위) */}
-              <p className="mt-4 text-right text-3xl font-bold text-foreground">{formatPrice(post.price)}</p>
 
               {/* 액션 */}
               <div className="mt-2 flex items-center gap-2">
@@ -276,6 +305,73 @@ export default function ProductPage() {
               <MessageCircle className="size-5" />
               오픈 채팅 열기
             </a>
+          </div>
+        </div>
+      )}
+
+      {/* 신고 설문 팝업 */}
+      {reportOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setReportOpen(false)}
+            className="absolute inset-0 bg-foreground/40"
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">상품 신고하기</h2>
+              <button
+                type="button"
+                onClick={() => setReportOpen(false)}
+                aria-label="닫기"
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <p className="mb-4 text-sm text-muted-foreground">신고 사유를 선택해주세요.</p>
+
+            <fieldset className="flex flex-col gap-2">
+              {["허위 매물", "사기 의심", "부적절한 콘텐츠", "중복 게시글", "기타"].map((reason) => (
+                <label
+                  key={reason}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm",
+                    reportReason === reason
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border text-foreground hover:bg-muted",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="report-reason"
+                    value={reason}
+                    checked={reportReason === reason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="accent-primary"
+                  />
+                  {reason}
+                </label>
+              ))}
+            </fieldset>
+
+            <textarea
+              value={reportDetail}
+              onChange={(e) => setReportDetail(e.target.value)}
+              placeholder="상세 내용 (선택)"
+              rows={3}
+              className="mt-3 w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+            />
+
+            <button
+              type="button"
+              onClick={handleSubmitReport}
+              disabled={!reportReason}
+              className="mt-4 w-full rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              제출하기
+            </button>
           </div>
         </div>
       )}
