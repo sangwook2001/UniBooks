@@ -31,14 +31,14 @@ function Dropdown({
 }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="relative">
+    <div className="relative min-w-0 flex-1 sm:flex-none">
       <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>
       <button
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex w-full min-w-32 items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm",
+          "flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm sm:min-w-32",
           disabled ? "cursor-not-allowed text-muted-foreground" : "text-foreground hover:bg-muted",
         )}
       >
@@ -53,7 +53,7 @@ function Dropdown({
             className="fixed inset-0 z-10"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute left-0 top-full z-20 mt-1 max-h-72 w-64 overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-lg">
+          <div className="absolute left-0 top-full z-20 mt-1 max-h-72 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-lg">
             {children(() => setOpen(false))}
           </div>
         </>
@@ -102,7 +102,7 @@ export function FilterBar({
   const subLabel = filters.category === "교양" ? "교양 분류" : "학과"
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="flex items-end gap-2 sm:flex-wrap sm:gap-3">
       {/* 분류 */}
       <Dropdown label="분류" value={filters.category}>
         {(close) =>

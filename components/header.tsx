@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Search, User, ChevronDown } from "lucide-react"
@@ -19,6 +20,7 @@ export function Header({
   showSearch?: boolean
 }) {
   const { user, logout, school } = useStore()
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
@@ -37,8 +39,9 @@ export function Header({
             </span>
           </Link>
 
+          {/* 데스크톱 검색창 */}
           {showSearch && (
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-background px-4 py-2.5">
+            <div className="hidden min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 sm:flex">
               <Search className="size-4 shrink-0 text-muted-foreground" />
               <input
                 value={query}
@@ -49,33 +52,76 @@ export function Header({
             </div>
           )}
 
-          <div className="flex shrink-0 items-center gap-2">
+          {/* 모바일: 검색 아이콘 + 로그인 아이콘 */}
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:ml-0">
+            {showSearch && (
+              <button
+                type="button"
+                onClick={() => setMobileSearchOpen((v) => !v)}
+                aria-label="검색"
+                className="flex size-10 items-center justify-center rounded-full text-foreground hover:bg-muted sm:hidden"
+              >
+                <Search className="size-5" />
+              </button>
+            )}
+
             {user ? (
-              <div className="flex items-center gap-2">
-                <span className="hidden text-sm text-muted-foreground sm:inline">
-                  {user.email}
-                </span>
+              <>
+                <span className="hidden text-sm text-muted-foreground sm:inline">{user.nickname}</span>
                 <button
                   type="button"
                   onClick={logout}
-                  className="rounded-full border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  className="hidden rounded-full border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted sm:inline-block"
                 >
                   로그아웃
                 </button>
-              </div>
+                <button
+                  type="button"
+                  onClick={logout}
+                  aria-label="로그아웃"
+                  className="flex size-10 items-center justify-center rounded-full text-foreground hover:bg-muted sm:hidden"
+                >
+                  <User className="size-5" />
+                </button>
+              </>
             ) : (
-              <button
-                type="button"
-                onClick={onOpenAuth}
-                className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 sm:px-4"
-              >
-                <User className="size-4" />
-                <span className="hidden sm:inline">로그인/회원가입</span>
-                <span className="sm:hidden">로그인</span>
-              </button>
+              <>
+                {/* 데스크톱 로그인 버튼 */}
+                <button
+                  type="button"
+                  onClick={onOpenAuth}
+                  className="hidden items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 sm:flex"
+                >
+                  <User className="size-4" />
+                  로그인/회원가입
+                </button>
+                {/* 모바일 로그인 아이콘 */}
+                <button
+                  type="button"
+                  onClick={onOpenAuth}
+                  aria-label="로그인/회원가입"
+                  className="flex size-10 items-center justify-center rounded-full text-foreground hover:bg-muted sm:hidden"
+                >
+                  <User className="size-5" />
+                </button>
+              </>
             )}
           </div>
         </div>
+
+        {/* 모바일 검색창 (토글) */}
+        {showSearch && mobileSearchOpen && (
+          <div className="mb-3 flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 sm:hidden">
+            <Search className="size-4 shrink-0 text-muted-foreground" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => onQueryChange?.(e.target.value)}
+              placeholder="교재명, 저자, 학과로 검색"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+        )}
 
         {onOpenSchool && (
           <button

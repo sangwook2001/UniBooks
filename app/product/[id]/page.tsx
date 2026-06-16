@@ -1,21 +1,40 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, BookOpen, Share2, Heart, MessageCircle, User } from "lucide-react"
+import { ArrowLeft, BookOpen, Share2, Heart, MessageCircle, User, Eye, X } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { formatPrice, postTag } from "@/lib/format"
+import { cn } from "@/lib/utils"
+
+function timeAgo(ts: number) {
+  const diff = Date.now() - ts
+  const m = Math.floor(diff / 60000)
+  if (m < 1) return "방금 전"
+  if (m < 60) return `${m}분 전`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}시간 전`
+  return `${Math.floor(h / 24)}일 전`
+}
 
 export default function ProductPage() {
   const params = useParams<{ id: string }>()
-  const { ready, getPost, pushRecent } = useStore()
+  const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user } =
+    useStore()
   const post = getPost(params.id)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [comment, setComment] = useState("")
+  const viewedRef = useRef(false)
 
   useEffect(() => {
-    if (post) pushRecent(post.id)
-  }, [post, pushRecent])
+    if (post && !viewedRef.current) {
+      viewedRef.current = true
+      pushRecent(post.id)
+      incrementViews(post.id)
+    }
+  }, [post, pushRecent, incrementViews])
 
   if (ready && !post) {
     return (
@@ -37,6 +56,19 @@ export default function ProductPage() {
       window.alert("링크가 복사되었습니다.")
     }
   }
+
+  function handleSubmitComment() {
+    if (!post) return
+    if (!user) {
+      window.alert("댓글을 작성하려면 로그인이 필요합니다.")
+      return
+    }
+    if (!comment.trim()) return
+    addComment(post.id, comment.trim())
+    setComment("")
+  }
+
+  const liked = post ? likedIds.includes(post.id) : false
 
   return (
     <div className="min-h-screen bg-background">
@@ -78,10 +110,33 @@ export default function ProductPage() {
                 저자 {post.author} · 상태 {post.condition}
               </p>
 
+              {/* 설명 (저자 밑) */}
+              {post.description && (
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                  {post.description}
+                </p>
+              )}
+
               <p className="mt-5 text-3xl font-bold text-foreground">{formatPrice(post.price)}</p>
 
+              {/* 조회수 · 찜 · 댓글 수 */}
+              <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Eye className="size-4" />
+                  {post.views.toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Heart className={cn("size-4", liked && "fill-primary text-primary")} />
+                  {post.likes.toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1">
+                  <MessageCircle className="size-4" />
+                  {post.comments.length.toLocaleString()}
+                </span>
+              </div>
+
               {/* 액션 */}
-              <div className="mt-6 flex items-center gap-2">
+              <div className="mt-4 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleShare}
@@ -92,14 +147,21 @@ export default function ProductPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => toggleLike(post.id)}
                   aria-label="찜하기"
-                  className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border text-foreground hover:bg-muted"
+                  aria-pressed={liked}
+                  className={cn(
+                    "flex size-12 shrink-0 items-center justify-center rounded-xl border",
+                    liked
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-foreground hover:bg-muted",
+                  )}
                 >
-                  <Heart className="size-5" />
+                  <Heart className={cn("size-5", liked && "fill-primary")} />
                 </button>
                 <button
                   type="button"
-                  onClick={() => window.alert("판매자에게 연락 요청을 보냈습니다.")}
+                  onClick={() => setChatOpen(true)}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
                 >
                   <MessageCircle className="size-5" />
@@ -112,24 +174,104 @@ export default function ProductPage() {
                 <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
                   <User className="size-5" />
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">판매자</p>
-                  <p className="text-sm font-medium text-foreground">{post.sellerId}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">{post.sellerNickname}</p>
+                  <p className="truncate text-xs text-muted-foreground">{post.sellerId}</p>
                 </div>
-                <span className="ml-auto text-xs text-muted-foreground">{post.school}</span>
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">{post.school}</span>
               </div>
-
-              {post.description && (
-                <div className="mt-6">
-                  <h2 className="mb-2 text-sm font-semibold text-foreground">상품 설명</h2>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-                    {post.description}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
+
+          {/* 댓글 */}
+          <section className="mt-10 border-t border-border pt-6">
+            <h2 className="mb-4 text-base font-semibold text-foreground">
+              댓글 {post.comments.length}
+            </h2>
+
+            <div className="flex gap-2">
+              <input
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSubmitComment()
+                }}
+                placeholder={user ? "댓글을 입력하세요" : "로그인 후 댓글을 작성할 수 있습니다"}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+              />
+              <button
+                type="button"
+                onClick={handleSubmitComment}
+                className="shrink-0 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+              >
+                등록
+              </button>
+            </div>
+
+            <ul className="mt-5 flex flex-col gap-4">
+              {post.comments.length === 0 ? (
+                <li className="py-6 text-center text-sm text-muted-foreground">
+                  아직 댓글이 없습니다. 첫 댓글을 남겨보세요!
+                </li>
+              ) : (
+                post.comments.map((c) => (
+                  <li key={c.id} className="flex gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                      <User className="size-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-foreground">{c.author}</span>
+                        <span className="text-xs text-muted-foreground">{timeAgo(c.createdAt)}</span>
+                      </div>
+                      <p className="mt-0.5 whitespace-pre-wrap text-sm text-foreground">{c.text}</p>
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+          </section>
         </main>
+      )}
+
+      {/* 오픈 채팅 팝업 */}
+      {chatOpen && post && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setChatOpen(false)}
+            className="absolute inset-0 bg-foreground/40"
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">판매자와 연락하기</h2>
+              <button
+                type="button"
+                onClick={() => setChatOpen(false)}
+                aria-label="닫기"
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              아래 오픈 채팅 링크로 판매자에게 바로 연락할 수 있습니다.
+            </p>
+            <div className="mt-3 rounded-lg border border-border bg-muted px-3 py-2.5">
+              <p className="break-all text-xs text-foreground">{post.openChatUrl}</p>
+            </div>
+            <a
+              href={post.openChatUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              <MessageCircle className="size-5" />
+              오픈 채팅 열기
+            </a>
+          </div>
+        </div>
       )}
     </div>
   )

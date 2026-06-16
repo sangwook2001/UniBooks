@@ -11,6 +11,13 @@ import {
 } from "react"
 import type { Category } from "./data"
 
+export type Comment = {
+  id: string
+  author: string // 닉네임
+  text: string
+  createdAt: number
+}
+
 export type Post = {
   id: string
   title: string
@@ -25,10 +32,15 @@ export type Post = {
   image?: string // data URL
   school: string
   sellerId: string // 판매자 아이디(이메일)
+  sellerNickname: string // 판매자 닉네임
+  openChatUrl: string // 오픈 채팅 링크
+  views: number
+  likes: number
+  comments: Comment[]
   createdAt: number
 }
 
-type User = { id: string; email: string }
+type User = { id: string; email: string; nickname: string }
 
 type StoreContextType = {
   ready: boolean
@@ -37,10 +49,15 @@ type StoreContextType = {
   user: User | null
   login: (email: string) => void
   logout: () => void
-  registerUser: (email: string) => void
+  registerUser: (email: string, nickname: string) => void
+  isNicknameTaken: (nickname: string) => boolean
   posts: Post[]
-  addPost: (p: Omit<Post, "id" | "createdAt" | "sellerId">) => Post
+  addPost: (p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">) => Post
   getPost: (id: string) => Post | undefined
+  incrementViews: (id: string) => void
+  toggleLike: (id: string) => void
+  likedIds: string[]
+  addComment: (id: string, text: string) => void
   recentIds: string[]
   pushRecent: (id: string) => void
   removeRecent: (id: string) => void
@@ -52,6 +69,8 @@ const SCHOOL_KEY = "unibooks.school"
 const POSTS_KEY = "unibooks.posts"
 const RECENT_KEY = "unibooks.recent"
 const USER_KEY = "unibooks.user"
+const NICK_KEY = "unibooks.nicknames"
+const LIKED_KEY = "unibooks.liked"
 
 function hashSchool(s: string): string {
   let h = 0
@@ -77,6 +96,13 @@ function demoPosts(school: string): Post[] {
       image: "/books/calculus.png",
       school,
       sellerId: `mathlover@unibooks.kr`,
+      sellerNickname: "수학덕후",
+      openChatUrl: "https://open.kakao.com/o/demo-math",
+      views: 142,
+      likes: 12,
+      comments: [
+        { id: "c1", author: "공대생", text: "혹시 판매 완료됐나요?", createdAt: Date.now() - 1000 * 60 * 40 },
+      ],
       createdAt: Date.now() - 1000 * 60 * 60 * 2,
     },
     {
@@ -92,6 +118,11 @@ function demoPosts(school: string): Post[] {
       image: "/books/econ.png",
       school,
       sellerId: `econ_master@unibooks.kr`,
+      sellerNickname: "경제왕",
+      openChatUrl: "https://open.kakao.com/o/demo-econ",
+      views: 89,
+      likes: 5,
+      comments: [],
       createdAt: Date.now() - 1000 * 60 * 60 * 5,
     },
     {
@@ -107,6 +138,11 @@ function demoPosts(school: string): Post[] {
       image: "/books/psych.png",
       school,
       sellerId: `book_dealer@unibooks.kr`,
+      sellerNickname: "책장수",
+      openChatUrl: "https://open.kakao.com/o/demo-psych",
+      views: 211,
+      likes: 24,
+      comments: [],
       createdAt: Date.now() - 1000 * 60 * 60 * 24,
     },
     {
@@ -122,6 +158,11 @@ function demoPosts(school: string): Post[] {
       image: "/books/english.png",
       school,
       sellerId: `english99@unibooks.kr`,
+      sellerNickname: "영어달인",
+      openChatUrl: "https://open.kakao.com/o/demo-eng",
+      views: 67,
+      likes: 3,
+      comments: [],
       createdAt: Date.now() - 1000 * 60 * 60 * 30,
     },
   ]
@@ -133,17 +174,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [recentIds, setRecentIds] = useState<string[]>([])
+  const [nicknames, setNicknames] = useState<string[]>([])
+  const [likedIds, setLikedIds] = useState<string[]>([])
 
   useEffect(() => {
     try {
       const s = localStorage.getItem(SCHOOL_KEY)
       if (s) setSchoolState(s)
       const p = localStorage.getItem(POSTS_KEY)
-      if (p) setPosts(JSON.parse(p))
+      if (p) {
+        const parsed = JSON.parse(p) as Partial<Post>[]
+        setPosts(
+          parsed.map((x) => ({
+            views: 0,
+            likes: 0,
+            comments: [],
+            sellerNickname: x.sellerId ? String(x.sellerId).split("@")[0] : "익명",
+            openChatUrl: "",
+            ...x,
+          })) as Post[],
+        )
+      }
       const r = localStorage.getItem(RECENT_KEY)
       if (r) setRecentIds(JSON.parse(r))
       const u = localStorage.getItem(USER_KEY)
       if (u) setUser(JSON.parse(u))
+      const n = localStorage.getItem(NICK_KEY)
+      if (n) setNicknames(JSON.parse(n))
+      const l = localStorage.getItem(LIKED_KEY)
+      if (l) setLikedIds(JSON.parse(l))
     } catch {
       // ignore
     }
@@ -161,8 +220,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const login = useCallback((email: string) => {
-    const u = { id: email, email }
+  const login = useCallback((email: string, nickname?: string) => {
+    const u = { id: email, email, nickname: nickname ?? email.split("@")[0] }
     setUser(u)
     localStorage.setItem(USER_KEY, JSON.stringify(u))
   }, [])
@@ -172,20 +231,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(USER_KEY)
   }, [])
 
+  const isNicknameTaken = useCallback(
+    (nickname: string) => {
+      const n = nickname.trim().toLowerCase()
+      const reserved = ["수학덕후", "경제왕", "책장수", "영어달인", "admin", "운영자"]
+      return reserved.includes(n) || nicknames.some((x) => x.toLowerCase() === n)
+    },
+    [nicknames],
+  )
+
   const registerUser = useCallback(
-    (email: string) => {
-      login(email)
+    (email: string, nickname: string) => {
+      setNicknames((prev) => {
+        const next = [...prev, nickname]
+        localStorage.setItem(NICK_KEY, JSON.stringify(next))
+        return next
+      })
+      login(email, nickname)
     },
     [login],
   )
 
   const addPost = useCallback(
-    (p: Omit<Post, "id" | "createdAt" | "sellerId">) => {
+    (p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">) => {
       const post: Post = {
         ...p,
         id: Math.random().toString(36).slice(2, 10),
         createdAt: Date.now(),
         sellerId: user?.email ?? "guest@unibooks.kr",
+        sellerNickname: user?.nickname ?? "익명",
+        views: 0,
+        likes: 0,
+        comments: [],
       }
       setPosts((prev) => {
         const next = [post, ...prev]
@@ -198,6 +275,50 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const getPost = useCallback((id: string) => posts.find((p) => p.id === id), [posts])
+
+  const persistPosts = useCallback((next: Post[]) => {
+    localStorage.setItem(POSTS_KEY, JSON.stringify(next))
+    return next
+  }, [])
+
+  const incrementViews = useCallback(
+    (id: string) => {
+      setPosts((prev) => persistPosts(prev.map((p) => (p.id === id ? { ...p, views: p.views + 1 } : p))))
+    },
+    [persistPosts],
+  )
+
+  const toggleLike = useCallback(
+    (id: string) => {
+      setLikedIds((prevLiked) => {
+        const liked = prevLiked.includes(id)
+        const nextLiked = liked ? prevLiked.filter((x) => x !== id) : [...prevLiked, id]
+        localStorage.setItem(LIKED_KEY, JSON.stringify(nextLiked))
+        setPosts((prev) =>
+          persistPosts(
+            prev.map((p) => (p.id === id ? { ...p, likes: Math.max(0, p.likes + (liked ? -1 : 1)) } : p)),
+          ),
+        )
+        return nextLiked
+      })
+    },
+    [persistPosts],
+  )
+
+  const addComment = useCallback(
+    (id: string, text: string) => {
+      const comment: Comment = {
+        id: Math.random().toString(36).slice(2, 10),
+        author: user?.nickname ?? "익명",
+        text,
+        createdAt: Date.now(),
+      }
+      setPosts((prev) =>
+        persistPosts(prev.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p))),
+      )
+    },
+    [user, persistPosts],
+  )
 
   const pushRecent = useCallback((id: string) => {
     setRecentIds((prev) => {
@@ -224,9 +345,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       registerUser,
+      isNicknameTaken,
       posts,
       addPost,
       getPost,
+      incrementViews,
+      toggleLike,
+      likedIds,
+      addComment,
       recentIds,
       pushRecent,
       removeRecent,
@@ -239,9 +365,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       registerUser,
+      isNicknameTaken,
       posts,
       addPost,
       getPost,
+      incrementViews,
+      toggleLike,
+      likedIds,
+      addComment,
       recentIds,
       pushRecent,
       removeRecent,

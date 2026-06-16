@@ -31,7 +31,7 @@ export function AuthModal({
   open: boolean
   onClose: () => void
 }) {
-  const { login, registerUser } = useStore()
+  const { login, registerUser, isNicknameTaken } = useStore()
   const [view, setView] = useState<View>("login")
 
   // login state
@@ -42,6 +42,7 @@ export function AuthModal({
 
   // signup state
   const [email, setEmail] = useState("")
+  const [nickname, setNickname] = useState("")
   const [code, setCode] = useState("")
   const [sentCode, setSentCode] = useState<string | null>(null)
   const [verified, setVerified] = useState(false)
@@ -56,9 +57,14 @@ export function AuthModal({
   const pwAllValid = checks.special && checks.number && checks.upper && pw.length >= 6
   const pwMismatch = pw2.length > 0 && pw !== pw2
 
+  const nickTrim = nickname.trim()
+  const nickTooShort = nickTrim.length > 0 && nickTrim.length < 2
+  const nickTaken = nickTrim.length >= 2 && isNicknameTaken(nickTrim)
+  const nickAvailable = nickTrim.length >= 2 && !nickTaken
+
   const signupValid = useMemo(
-    () => verified && pwAllValid && pw === pw2 && pw2.length > 0,
-    [verified, pwAllValid, pw, pw2],
+    () => verified && nickAvailable && pwAllValid && pw === pw2 && pw2.length > 0,
+    [verified, nickAvailable, pwAllValid, pw, pw2],
   )
 
   if (!open) return null
@@ -69,6 +75,7 @@ export function AuthModal({
     setLoginPw("")
     setLoginTouched(false)
     setEmail("")
+    setNickname("")
     setCode("")
     setSentCode(null)
     setVerified(false)
@@ -103,7 +110,7 @@ export function AuthModal({
 
   function handleSignup() {
     if (!signupValid) return
-    registerUser(email)
+    registerUser(email, nickTrim)
     window.alert("회원가입이 완료되었습니다.")
     close()
   }
@@ -267,6 +274,40 @@ export function AuthModal({
                 <Check className="size-3.5" /> 본인확인이 완료되었습니다.
               </p>
             )}
+
+            {/* 닉네임 */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">닉네임</label>
+              <div className="relative">
+                <input
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="2자 이상 입력"
+                  maxLength={16}
+                  className={cn(
+                    "w-full rounded-lg border bg-background px-3 py-2.5 pr-20 text-sm outline-none",
+                    nickTaken || nickTooShort
+                      ? "border-destructive"
+                      : nickAvailable
+                        ? "border-primary"
+                        : "border-border focus:border-primary",
+                  )}
+                />
+                {nickTrim.length > 0 && (
+                  <span
+                    className={cn(
+                      "absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium",
+                      nickAvailable ? "text-primary" : "text-destructive",
+                    )}
+                  >
+                    {nickTooShort ? "너무 짧음" : nickAvailable ? "사용 가능" : "사용 중"}
+                  </span>
+                )}
+              </div>
+              {nickTaken && (
+                <p className="mt-1 text-xs text-destructive">이미 사용 중인 닉네임입니다.</p>
+              )}
+            </div>
 
             {/* 비밀번호 */}
             <div>

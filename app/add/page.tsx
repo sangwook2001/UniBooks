@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -20,8 +20,15 @@ import { cn } from "@/lib/utils"
 
 export default function AddPage() {
   const router = useRouter()
-  const { school, addPost } = useStore()
+  const { school, addPost, user, ready } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (ready && !user) {
+      window.alert("게시글을 등록하려면 로그인이 필요합니다.")
+      router.replace("/")
+    }
+  }, [ready, user, router])
 
   const [title, setTitle] = useState("")
   const [author, setAuthor] = useState("")
@@ -31,6 +38,7 @@ export default function AddPage() {
   const [liberalGroup, setLiberalGroup] = useState("")
   const [grade, setGrade] = useState("")
   const [condition, setCondition] = useState("")
+  const [openChat, setOpenChat] = useState("")
   const [description, setDescription] = useState("")
   const [image, setImage] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
@@ -45,13 +53,14 @@ export default function AddPage() {
     reader.readAsDataURL(file)
   }
 
-  // 필수: 사진, 제목, 저자, 가격, 분류, 상태 + (전공/교양일 때 학과/교양분류·학년). 설명은 선택.
+  // 필수: 사진, 제목, 저자, 가격, 분류, 상태, 오픈채팅 링크 + (전공/교양일 때 학과/교양분류·학년). 설명은 선택.
   const missing =
     !image ||
     !title.trim() ||
     !author.trim() ||
     !priceStr ||
     !condition ||
+    !openChat.trim() ||
     (category === "전공" && !department) ||
     (category === "교양" && !liberalGroup) ||
     (showDeptGrade && !grade)
@@ -68,6 +77,7 @@ export default function AddPage() {
       department: category === "전공" ? department : undefined,
       liberalGroup: category === "교양" ? liberalGroup : undefined,
       grade: showDeptGrade ? grade : undefined,
+      openChatUrl: openChat.trim(),
       description: description.trim() || undefined,
       image: image ?? undefined,
       school: school ?? "",
@@ -211,6 +221,19 @@ export default function AddPage() {
                 </Chip>
               ))}
             </div>
+          </Field>
+
+          {/* 오픈 채팅 링크 */}
+          <Field
+            label="오픈 채팅 링크"
+            required
+            error={submitted && !openChat.trim() ? "오픈 채팅 링크를 입력해주세요." : ""}
+          >
+            <Input
+              value={openChat}
+              onChange={setOpenChat}
+              placeholder="예: https://open.kakao.com/o/..."
+            />
           </Field>
 
           {/* 설명 (선택) */}

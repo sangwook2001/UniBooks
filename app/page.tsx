@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Plus } from "lucide-react"
 import { useStore } from "@/lib/store"
@@ -13,7 +13,8 @@ import { ProductCard } from "@/components/product-card"
 import { RecentlyViewed } from "@/components/recently-viewed"
 
 export default function HomePage() {
-  const { ready, school, setSchool, posts } = useStore()
+  const { ready, school, setSchool, posts, user } = useStore()
+  const router = useRouter()
   const [authOpen, setAuthOpen] = useState(false)
   const [schoolOpen, setSchoolOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -24,6 +25,15 @@ export default function HomePage() {
   })
 
   const needsSchool = ready && !school
+
+  function handleAddClick() {
+    if (!user) {
+      window.alert("게시글을 등록하려면 로그인이 필요합니다.")
+      setAuthOpen(true)
+      return
+    }
+    router.push("/add")
+  }
 
   const visible = useMemo(() => {
     return posts.filter((p) => {
@@ -107,13 +117,14 @@ export default function HomePage() {
           </main>
 
           {/* 추가하기 버튼 */}
-          <Link
-            href="/add"
+          <button
+            type="button"
+            onClick={handleAddClick}
             className="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-full bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-lg transition hover:opacity-90"
           >
             <Plus className="size-5" />
             추가하기
-          </Link>
+          </button>
 
           <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
           <SchoolSelectModal
