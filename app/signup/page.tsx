@@ -92,11 +92,7 @@ export default function SignupPage() {
     if (!signupValid || !signupSchool) return
     registerUser(email, nickTrim, signupSchool)
     window.alert("회원가입이 완료되었습니다.")
-    if (typeof window !== "undefined" && window.opener && !window.opener.closed) {
-      window.close()
-    } else {
-      router.push("/")
-    }
+    router.push("/")
   }
 
   return (

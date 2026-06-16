@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import {
@@ -20,7 +20,6 @@ import {
 import { useStore, type Comment as CommentType } from "@/lib/store"
 import { formatPrice, postTag } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { openAuthWindow } from "@/lib/open-auth"
 
 function timeAgoStr(ts: number) {
   const diff = Date.now() - ts
@@ -184,6 +183,7 @@ function CommentNode({
 
 export default function ProductPage() {
   const params = useParams<{ id: string }>()
+  const router = useRouter()
   const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user } =
     useStore()
   const post = getPost(params.id)
@@ -246,7 +246,7 @@ export default function ProductPage() {
     if (!post) return
     if (!user) {
       window.alert("찜하려면 로그인이 필요합니다.")
-      openAuthWindow("/login")
+      router.push("/login")
       return
     }
     toggleLike(post.id)

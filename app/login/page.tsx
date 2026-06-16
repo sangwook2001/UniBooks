@@ -24,11 +24,7 @@ export default function LoginPage() {
   const emailInvalid = touched && email.length > 0 && !EMAIL_RE.test(email)
 
   function done() {
-    if (typeof window !== "undefined" && window.opener && !window.opener.closed) {
-      window.close()
-    } else {
-      router.push("/")
-    }
+    router.back()
   }
 
   function handleLogin() {

@@ -7,7 +7,6 @@ import { Plus } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { Header } from "@/components/header"
 import { SchoolSelectModal } from "@/components/school-select-modal"
-import { openAuthWindow } from "@/lib/open-auth"
 import { FilterBar, type Filters } from "@/components/filter-bar"
 import { ProductCard } from "@/components/product-card"
 import { RecentlyViewed } from "@/components/recently-viewed"
@@ -28,7 +27,7 @@ export default function HomePage() {
   function handleAddClick() {
     if (!user) {
       window.alert("게시글을 등록하려면 로그인이 필요합니다.")
-      openAuthWindow("/login")
+      router.push("/login")
       return
     }
     router.push("/add")
@@ -87,7 +86,7 @@ export default function HomePage() {
           <Header
             query={query}
             onQueryChange={setQuery}
-            onOpenAuth={() => openAuthWindow("/login")}
+            onOpenAuth={() => router.push("/login")}
             onOpenSchool={() => setSchoolOpen(true)}
           />
 
