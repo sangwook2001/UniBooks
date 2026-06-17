@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Eye, EyeOff, ArrowLeft } from "lucide-react"
-import { useStore } from "@/lib/store"
+import { useStore, ADMIN_EMAIL, ADMIN_PASSWORD } from "@/lib/store"
 import { cn } from "@/lib/utils"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -27,6 +27,16 @@ export default function LoginPage() {
     setTouched(true)
     if (!EMAIL_RE.test(email)) return
     if (!pw) return
+    // 관리자 계정: 이메일+비밀번호가 모두 일치해야 로그인됩니다.
+    if (email.toLowerCase() === ADMIN_EMAIL) {
+      if (pw !== ADMIN_PASSWORD) {
+        window.alert("관리자 비밀번호가 올바르지 않습니다.")
+        return
+      }
+      login(email)
+      router.push("/admin")
+      return
+    }
     const nick = email.toLowerCase() === "test@unibooks.kr" ? "테스터" : undefined
     login(email, nick)
     router.push("/")
