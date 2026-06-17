@@ -147,6 +147,177 @@ export const UNIVERSITIES: string[] = [
   .filter((u) => !u.startsWith("platform-"))
   .sort((a, b) => a.localeCompare(b, "ko"))
 
+// 대학교별 학교 이메일 도메인 (대표 도메인 기준, 일부는 복수 허용)
+// key 는 UNIVERSITIES 목록의 이름과 정확히 일치해야 합니다.
+export const SCHOOL_EMAIL_DOMAINS: Record<string, string[]> = {
+  // 서울
+  서울대학교: ["snu.ac.kr"],
+  연세대학교: ["yonsei.ac.kr"],
+  "연세대학교(미래)": ["yonsei.ac.kr"],
+  고려대학교: ["korea.ac.kr"],
+  서강대학교: ["sogang.ac.kr"],
+  성균관대학교: ["skku.edu", "g.skku.edu"],
+  한양대학교: ["hanyang.ac.kr"],
+  중앙대학교: ["cau.ac.kr"],
+  경희대학교: ["khu.ac.kr"],
+  한국외국어대학교: ["hufs.ac.kr"],
+  서울시립대학교: ["uos.ac.kr"],
+  건국대학교: ["konkuk.ac.kr"],
+  동국대학교: ["dongguk.edu", "dgu.ac.kr"],
+  홍익대학교: ["hongik.ac.kr", "g.hongik.ac.kr", "mail.hongik.ac.kr"],
+  숙명여자대학교: ["sookmyung.ac.kr", "sm.ac.kr"],
+  이화여자대학교: ["ewha.ac.kr", "ewhain.net"],
+  성신여자대학교: ["sungshin.ac.kr"],
+  덕성여자대학교: ["duksung.ac.kr"],
+  동덕여자대학교: ["dongduk.ac.kr"],
+  서울여자대학교: ["swu.ac.kr"],
+  광운대학교: ["kw.ac.kr"],
+  국민대학교: ["kookmin.ac.kr"],
+  숭실대학교: ["soongsil.ac.kr", "ssu.ac.kr"],
+  세종대학교: ["sejong.ac.kr"],
+  단국대학교: ["dankook.ac.kr"],
+  "단국대학교(천안)": ["dankook.ac.kr"],
+  명지대학교: ["mju.ac.kr"],
+  상명대학교: ["sangmyung.kr", "smu.ac.kr"],
+  삼육대학교: ["syu.ac.kr"],
+  서경대학교: ["skuniv.ac.kr"],
+  성공회대학교: ["skhu.ac.kr"],
+  한성대학교: ["hansung.ac.kr"],
+  추계예술대학교: ["chugye.ac.kr"],
+  총신대학교: ["chongshin.ac.kr"],
+  서울과학기술대학교: ["seoultech.ac.kr"],
+  한국체육대학교: ["knsu.ac.kr"],
+  // 인천/경기
+  인천대학교: ["inu.ac.kr"],
+  인하대학교: ["inha.ac.kr", "inha.edu"],
+  가천대학교: ["gachon.ac.kr"],
+  아주대학교: ["ajou.ac.kr"],
+  경기대학교: ["kyonggi.ac.kr", "kgu.ac.kr"],
+  수원대학교: ["suwon.ac.kr"],
+  한신대학교: ["hs.ac.kr"],
+  협성대학교: ["uhs.ac.kr"],
+  용인대학교: ["yongin.ac.kr"],
+  강남대학교: ["kangnam.ac.kr"],
+  대진대학교: ["daejin.ac.kr"],
+  안양대학교: ["anyang.ac.kr"],
+  한경국립대학교: ["hknu.ac.kr"],
+  한국항공대학교: ["kau.ac.kr"],
+  한국산업기술대학교: ["kpu.ac.kr", "tukorea.ac.kr"],
+  차의과학대학교: ["cha.ac.kr"],
+  신한대학교: ["shinhan.ac.kr"],
+  을지대학교: ["eulji.ac.kr"],
+  // 강원
+  강원대학교: ["kangwon.ac.kr"],
+  강릉원주대학교: ["gwnu.ac.kr"],
+  한림대학교: ["hallym.ac.kr"],
+  가톨릭관동대학교: ["cku.ac.kr"],
+  상지대학교: ["sangji.ac.kr"],
+  한라대학교: ["halla.ac.kr"],
+  // 충청
+  충남대학교: ["cnu.ac.kr"],
+  충북대학교: ["chungbuk.ac.kr", "cbnu.ac.kr"],
+  한밭대학교: ["hanbat.ac.kr"],
+  공주대학교: ["kongju.ac.kr", "smail.kongju.ac.kr"],
+  순천향대학교: ["sch.ac.kr"],
+  건양대학교: ["konyang.ac.kr"],
+  배재대학교: ["pcu.ac.kr"],
+  대전대학교: ["dju.ac.kr", "edu.dju.ac.kr"],
+  목원대학교: ["mokwon.ac.kr"],
+  한남대학교: ["hnu.kr"],
+  우송대학교: ["wsu.ac.kr"],
+  청주대학교: ["cju.ac.kr"],
+  서원대학교: ["seowon.ac.kr"],
+  한국교통대학교: ["ut.ac.kr"],
+  세명대학교: ["semyung.ac.kr"],
+  중부대학교: ["joongbu.ac.kr"],
+  선문대학교: ["sunmoon.ac.kr"],
+  호서대학교: ["hoseo.edu"],
+  남서울대학교: ["nsu.ac.kr"],
+  백석대학교: ["bu.ac.kr"],
+  "KAIST(한국과학기술원)": ["kaist.ac.kr"],
+  "UST(과학기술연합대학원대학교)": ["ust.ac.kr"],
+  // 대구/경북
+  경북대학교: ["knu.ac.kr"],
+  영남대학교: ["yu.ac.kr", "ynu.ac.kr"],
+  계명대학교: ["kmu.kr", "gw.kmu.ac.kr"],
+  대구대학교: ["daegu.ac.kr"],
+  대구가톨릭대학교: ["cu.ac.kr"],
+  안동대학교: ["anu.ac.kr"],
+  금오공과대학교: ["kumoh.ac.kr"],
+  경운대학교: ["ikw.ac.kr"],
+  대구한의대학교: ["dhu.ac.kr"],
+  위덕대학교: ["uu.ac.kr"],
+  한동대학교: ["handong.edu", "handong.ac.kr"],
+  "동국대학교(경주)": ["dongguk.ac.kr"],
+  "DGIST(대구경북과학기술원)": ["dgist.ac.kr"],
+  "포항공과대학교(POSTECH)": ["postech.ac.kr"],
+  // 부산/울산/경남
+  부산대학교: ["pusan.ac.kr"],
+  부경대학교: ["pukyong.ac.kr"],
+  동아대학교: ["donga.ac.kr"],
+  경성대학교: ["ks.ac.kr"],
+  동의대학교: ["deu.ac.kr"],
+  동서대학교: ["dongseo.ac.kr", "gdsu.dongseo.ac.kr"],
+  신라대학교: ["silla.ac.kr"],
+  고신대학교: ["kosin.ac.kr"],
+  부산외국어대학교: ["bufs.ac.kr"],
+  한국해양대학교: ["kmou.ac.kr"],
+  울산대학교: ["ulsan.ac.kr", "mail.ulsan.ac.kr"],
+  "UNIST(울산과학기술원)": ["unist.ac.kr"],
+  경상국립대학교: ["gnu.ac.kr"],
+  창원대학교: ["changwon.ac.kr"],
+  인제대학교: ["inje.ac.kr"],
+  경남대학교: ["kyungnam.ac.kr"],
+  영산대학교: ["ysu.ac.kr"],
+  // 광주/전라
+  전남대학교: ["jnu.ac.kr", "chonnam.ac.kr"],
+  전북대학교: ["jbnu.ac.kr"],
+  조선대학교: ["chosun.ac.kr", "chosun.kr"],
+  광주대학교: ["gwangju.ac.kr"],
+  호남대학교: ["honam.ac.kr"],
+  광주여자대학교: ["kwu.ac.kr"],
+  남부대학교: ["nambu.ac.kr"],
+  송원대학교: ["songwon.ac.kr"],
+  "GIST(광주과학기술원)": ["gist.ac.kr", "gm.gist.ac.kr"],
+  원광대학교: ["wku.ac.kr", "wonkwang.ac.kr"],
+  군산대학교: ["kunsan.ac.kr"],
+  전주대학교: ["jj.ac.kr"],
+  우석대학교: ["woosuk.ac.kr"],
+  예수대학교: ["jesus.ac.kr"],
+  목포대학교: ["mokpo.ac.kr"],
+  순천대학교: ["scnu.ac.kr", "sunchon.ac.kr"],
+  동신대학교: ["dsu.ac.kr"],
+  초당대학교: ["cdu.ac.kr"],
+  세한대학교: ["sehan.ac.kr"],
+  // 제주
+  제주대학교: ["jejunu.ac.kr"],
+  제주국제대학교: ["jju.ac.kr"],
+}
+
+// 학교 이메일 도메인 검증에 사용할 헬퍼.
+// 등록된 도메인이 있으면 해당 도메인만 허용하고, 없으면 학술 도메인(.ac.kr/.edu)을 폭넓게 허용합니다.
+export function getSchoolEmailDomains(school: string | null | undefined): string[] {
+  if (!school) return []
+  return SCHOOL_EMAIL_DOMAINS[school] ?? []
+}
+
+export function getEmailDomain(email: string): string {
+  const at = email.lastIndexOf("@")
+  if (at < 0) return ""
+  return email.slice(at + 1).trim().toLowerCase()
+}
+
+export function isSchoolEmail(email: string, school: string | null | undefined): boolean {
+  const domain = getEmailDomain(email)
+  if (!domain) return false
+  const allowed = getSchoolEmailDomains(school)
+  if (allowed.length > 0) {
+    return allowed.some((d) => domain === d.toLowerCase())
+  }
+  // 등록되지 않은 학교는 일반 학술 도메인을 허용 (예: ac.kr, edu)
+  return domain.endsWith(".ac.kr") || domain.endsWith(".edu") || domain.endsWith(".edu.kr")
+}
+
 // 분류 1차: 전체 / 전공 / 교양 / 기타
 export type Category = "전체" | "전공" | "교양" | "기타"
 export const CATEGORIES: Category[] = ["전체", "전공", "교양", "기타"]
@@ -284,7 +455,7 @@ export const DEPARTMENTS_BY_COLLEGE: Record<string, string[]> = {
     "약학과",
     "간호학과",
     "수의예과",
-    "물리치료학과",
+    "물리치료학���",
     "작업치료학과",
     "방사선학과",
     "임상병리학과",
