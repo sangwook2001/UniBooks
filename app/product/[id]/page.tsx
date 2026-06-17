@@ -229,7 +229,7 @@ export default function ProductPage() {
     try {
       await navigator.clipboard.writeText(shareUrl)
     } catch {
-      // 클립보드 접근이 ��힌 환경(iframe 등) 대비 폴백
+      // 클립보드 접근이 ��힌 환���(iframe 등) 대비 폴백
       const ta = document.createElement("textarea")
       ta.value = shareUrl
       document.body.appendChild(ta)
@@ -291,7 +291,8 @@ export default function ProductPage() {
   }
 
   const liked = post ? likedIds.includes(post.id) : false
-  const isOwner = !!post && !!user && post.sellerId === user.id
+  const isOwner =
+    !!post && !!user && String(post.sellerId ?? "").trim() === String(user.id ?? "").trim()
   // 관리자는 모든 상품을 삭제할 수 있습니다.
   const canDelete = isOwner || isAdmin
 
@@ -495,6 +496,18 @@ export default function ProductPage() {
                       판매 완료
                     </button>
                   </>
+                ) : post.status !== "판매중" ? (
+                  <div
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold",
+                      post.status === "예약중"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {post.status === "예약중" ? <Clock className="size-5" /> : <CheckCircle2 className="size-5" />}
+                    {post.status}
+                  </div>
                 ) : (
                   <button
                     type="button"
