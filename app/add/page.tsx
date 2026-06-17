@@ -44,7 +44,7 @@ export default function AddPage() {
       if (!p) {
         window.alert("게시글을 찾을 수 없습니다.")
         router.replace("/")
-      } else if (p.sellerId !== user.email) {
+      } else if (p.sellerId !== user.id) {
         window.alert("본인이 등록한 상품만 수정할 수 있습니다.")
         router.replace(`/product/${editId}`)
       }

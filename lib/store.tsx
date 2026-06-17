@@ -35,14 +35,17 @@ export type Post = {
   description?: string
   image?: string // data URL
   school: string
-  sellerId: string // 판매자 아이디(이메일)
+  sellerId: string // 판매자 아이디(auth user id)
   sellerNickname: string // 판매자 닉네임
   openChatUrl: string // 오픈 채팅 링크
+  status: PostStatus // 판매 상태
   views: number
   likes: number
   comments: Comment[]
   createdAt: number
 }
+
+export type PostStatus = "판매중" | "예약중" | "판매완료"
 
 type User = { id: string; email: string; nickname: string; school?: string; isAdmin?: boolean }
 
@@ -74,13 +77,14 @@ type StoreContextType = {
   isNicknameTaken: (nickname: string) => boolean
   posts: Post[]
   addPost: (
-    p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">,
+    p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "status" | "views" | "likes" | "comments">,
   ) => Promise<Post>
   updatePost: (id: string, patch: Partial<Omit<Post, "id" | "createdAt" | "sellerId">>) => void
   deletePost: (id: string) => void
   getPost: (id: string) => Post | undefined
   incrementViews: (id: string) => void
   toggleLike: (id: string) => void
+  setStatus: (id: string, status: PostStatus) => void
   likedIds: string[]
   addComment: (id: string, text: string) => void
   addReply: (postId: string, commentId: string, text: string) => void
@@ -117,6 +121,7 @@ type PostRow = {
   seller_id: string
   seller_nickname: string
   open_chat_url: string
+  status: string | null
   views: number
   likes: number
   created_at: string
@@ -193,6 +198,7 @@ function mapPost(row: PostRow, comments: Comment[]): Post {
     sellerId: row.seller_id,
     sellerNickname: row.seller_nickname,
     openChatUrl: row.open_chat_url,
+    status: (row.status as PostStatus) ?? "판매중",
     views: row.views,
     likes: row.likes,
     comments,
@@ -243,7 +249,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setNicknames(((data as { nickname: string }[]) ?? []).map((d) => d.nickname))
   }, [supabase])
 
-  // 로그인 사용자 관련 데이터(프로필/찜/신고)
+  // 로그인 사��자 관련 데이터(프로필/찜/신고)
   const loadUserData = useCallback(
     async (authUser: { id: string; email?: string }) => {
       const { data: profile } = await supabase
@@ -394,7 +400,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addPost = useCallback(
     async (
-      p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">,
+      p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "status" | "views" | "likes" | "comments">,
     ) => {
       const current = userRef.current
       const id = crypto.randomUUID()
@@ -405,6 +411,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         createdAt,
         sellerId: current?.id ?? "",
         sellerNickname: current?.nickname ?? "익명",
+        status: "판매중",
         views: 0,
         likes: 0,
         comments: [],
@@ -455,6 +462,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (patch.image !== undefined) dbPatch.image = patch.image ?? null
       if (patch.openChatUrl !== undefined) dbPatch.open_chat_url = patch.openChatUrl
       if (patch.school !== undefined) dbPatch.school = patch.school
+      if (patch.status !== undefined) dbPatch.status = patch.status
       supabase
         .from("posts")
         .update(dbPatch)
@@ -475,6 +483,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .eq("id", id)
         .then(({ error }) => {
           if (error) console.log("[v0] deletePost error:", error.message)
+        })
+    },
+    [supabase],
+  )
+
+  const setStatus = useCallback(
+    (id: string, status: PostStatus) => {
+      setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)))
+      supabase
+        .from("posts")
+        .update({ status })
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) console.log("[v0] setStatus error:", error.message)
         })
     },
     [supabase],
@@ -530,23 +552,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const incrementViews = useCallback(
     (id: string) => {
-      let nextViews = 0
-      setPosts((prev) =>
-        prev.map((p) => {
-          if (p.id === id) {
-            nextViews = p.views + 1
-            return { ...p, views: nextViews }
-          }
-          return p
-        }),
-      )
-      supabase
-        .from("posts")
-        .update({ views: nextViews })
-        .eq("id", id)
-        .then(({ error }) => {
-          if (error) console.log("[v0] incrementViews error:", error.message)
-        })
+      // 낙관적 업데이트
+      setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, views: p.views + 1 } : p)))
+      // RLS 우회용 RPC 호출 → 작성자가 아닌 사용자의 조회도 반영됨
+      supabase.rpc("increment_post_views", { p_id: id }).then(({ error }) => {
+        if (error) console.log("[v0] incrementViews error:", error.message)
+      })
     },
     [supabase],
   )
@@ -742,6 +753,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       getPost,
       incrementViews,
       toggleLike,
+      setStatus,
       likedIds,
       addComment,
       addReply,
@@ -771,6 +783,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       getPost,
       incrementViews,
       toggleLike,
+      setStatus,
       likedIds,
       addComment,
       addReply,
