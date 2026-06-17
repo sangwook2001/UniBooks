@@ -41,6 +41,7 @@ export default function SignupPage() {
   const [pw, setPw] = useState("")
   const [pw2, setPw2] = useState("")
   const [showPw, setShowPw] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const checks = passwordChecks(pw)
   const strength = strengthOf(pw)
@@ -88,9 +89,20 @@ export default function SignupPage() {
     }
   }
 
-  function handleSignup() {
-    if (!signupValid || !signupSchool) return
-    registerUser(email, nickTrim, signupSchool)
+  async function handleSignup() {
+    if (!signupValid || !signupSchool || submitting) return
+    setSubmitting(true)
+    const res = await registerUser(email, pw, nickTrim, signupSchool)
+    setSubmitting(false)
+    if (!res.ok) {
+      window.alert(res.error ?? "회원가입에 실패했습니다.")
+      return
+    }
+    if (res.needsEmailConfirm) {
+      window.alert("회원가입이 완료되었습니다. 학교 이메일로 발송된 확인 메일의 링크를 눌러 인증을 마쳐주세요.")
+      router.push("/login")
+      return
+    }
     window.alert("회원가입이 완료되었습니다.")
     router.push("/")
   }
@@ -326,11 +338,11 @@ export default function SignupPage() {
 
             <button
               type="button"
-              disabled={!signupValid}
+              disabled={!signupValid || submitting}
               onClick={handleSignup}
               className="mt-1 w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              확인
+              {submitting ? "처리 중..." : "확인"}
             </button>
 
             <button

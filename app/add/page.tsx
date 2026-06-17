@@ -105,7 +105,7 @@ export default function AddPage() {
     (category === "교양" && !liberalGroup) ||
     (showDeptGrade && !grade)
 
-  function handleSubmit() {
+  async function handleSubmit() {
     setSubmitted(true)
     if (missing) return
     const data = {
@@ -127,7 +127,7 @@ export default function AddPage() {
       router.push(`/product/${editId}`)
       return
     }
-    const post = addPost(data)
+    const post = await addPost(data)
     router.push(`/product/${post.id}`)
   }
 
