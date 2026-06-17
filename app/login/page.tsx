@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Eye, EyeOff, ArrowLeft } from "lucide-react"
-import { useStore, ADMIN_EMAIL, ADMIN_PASSWORD } from "@/lib/store"
+import { useStore, ADMIN_EMAIL } from "@/lib/store"
 import { cn } from "@/lib/utils"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -20,26 +20,25 @@ export default function LoginPage() {
   const [pw, setPw] = useState("")
   const [showPw, setShowPw] = useState(false)
   const [touched, setTouched] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const emailInvalid = touched && email.length > 0 && !EMAIL_RE.test(email)
 
-  function handleLogin() {
+  async function handleLogin() {
     setTouched(true)
+    setError(null)
     if (!EMAIL_RE.test(email)) return
     if (!pw) return
-    // 관리자 계정: 이메일+비밀번호가 모두 일치해야 로그인됩니다.
-    if (email.toLowerCase() === ADMIN_EMAIL) {
-      if (pw !== ADMIN_PASSWORD) {
-        window.alert("관리자 비밀번호가 올바르지 않습니다.")
-        return
-      }
-      login(email)
-      router.push("/admin")
+    setLoading(true)
+    const isAdmin = email.toLowerCase() === ADMIN_EMAIL
+    const res = await login(email, pw)
+    setLoading(false)
+    if (!res.ok) {
+      setError(res.error === "Invalid login credentials" ? "이메일 또는 비밀번호가 올바르지 않습니다." : (res.error ?? "로그인에 실패했습니다."))
       return
     }
-    const nick = email.toLowerCase() === "test@unibooks.kr" ? "테스터" : undefined
-    login(email, nick)
-    router.push("/")
+    router.push(isAdmin ? "/admin" : "/")
   }
 
   return (
@@ -121,10 +120,13 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={handleLogin}
-                className="mt-1 w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+                disabled={loading}
+                className="mt-1 w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60"
               >
-                로그인
+                {loading ? "로그인 중..." : "로그인"}
               </button>
+
+              {error && <p className="text-center text-xs text-destructive">{error}</p>}
 
               <div className="mt-1 flex items-stretch justify-center gap-2 text-xs text-muted-foreground">
                 <button
