@@ -249,7 +249,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setNicknames(((data as { nickname: string }[]) ?? []).map((d) => d.nickname))
   }, [supabase])
 
-  // 로그인 사용자 관련 데이터(프로필/찜/신고)
+  // 로그인 사��자 관련 데이터(프로필/찜/신고)
   const loadUserData = useCallback(
     async (authUser: { id: string; email?: string }) => {
       const { data: profile } = await supabase
@@ -400,7 +400,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addPost = useCallback(
     async (
-      p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">,
+      p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "status" | "views" | "likes" | "comments">,
     ) => {
       const current = userRef.current
       const id = crypto.randomUUID()
