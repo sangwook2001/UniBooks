@@ -33,7 +33,8 @@ export type Post = {
   liberalGroup?: string // 교양일 때 분류
   grade?: string
   description?: string
-  image?: string // data URL
+  image?: string // 대표 이미지(첫 번째 사진) - 하위 호환용
+  images?: string[] // 최대 5장 사진 (data URL)
   school: string
   sellerId: string // 판매자 아이디(auth user id)
   sellerNickname: string // 판매자 닉네임
@@ -117,6 +118,7 @@ type PostRow = {
   grade: string | null
   description: string | null
   image: string | null
+  images: string[] | null
   school: string
   seller_id: string
   seller_nickname: string
@@ -193,7 +195,8 @@ function mapPost(row: PostRow, comments: Comment[]): Post {
     liberalGroup: row.liberal_group ?? undefined,
     grade: row.grade ?? undefined,
     description: row.description ?? undefined,
-    image: row.image ?? undefined,
+    image: row.image ?? (row.images && row.images.length > 0 ? row.images[0] : undefined),
+    images: row.images && row.images.length > 0 ? row.images : row.image ? [row.image] : [],
     school: row.school,
     sellerId: row.seller_id,
     sellerNickname: row.seller_nickname,
@@ -249,7 +252,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setNicknames(((data as { nickname: string }[]) ?? []).map((d) => d.nickname))
   }, [supabase])
 
-  // 로그인 사��자 관련 데이터(프로필/찜/신고)
+  // 로그인 사���자 관련 데이터(프로필/찜/신고)
   const loadUserData = useCallback(
     async (authUser: { id: string; email?: string }) => {
       const { data: profile } = await supabase
@@ -429,7 +432,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         liberal_group: p.liberalGroup ?? null,
         grade: p.grade ?? null,
         description: p.description ?? null,
-        image: p.image ?? null,
+        image: p.images && p.images.length > 0 ? p.images[0] : (p.image ?? null),
+        images: p.images && p.images.length > 0 ? p.images : p.image ? [p.image] : [],
         school: p.school,
         seller_id: current?.id ?? "",
         seller_nickname: current?.nickname ?? "익명",
@@ -459,7 +463,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (patch.liberalGroup !== undefined) dbPatch.liberal_group = patch.liberalGroup ?? null
       if (patch.grade !== undefined) dbPatch.grade = patch.grade ?? null
       if (patch.description !== undefined) dbPatch.description = patch.description ?? null
-      if (patch.image !== undefined) dbPatch.image = patch.image ?? null
+      if (patch.images !== undefined) {
+        const imgs = patch.images ?? []
+        dbPatch.images = imgs
+        dbPatch.image = imgs.length > 0 ? imgs[0] : null
+      } else if (patch.image !== undefined) {
+        dbPatch.image = patch.image ?? null
+      }
       if (patch.openChatUrl !== undefined) dbPatch.open_chat_url = patch.openChatUrl
       if (patch.school !== undefined) dbPatch.school = patch.school
       if (patch.status !== undefined) dbPatch.status = patch.status
