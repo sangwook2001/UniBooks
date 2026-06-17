@@ -186,7 +186,7 @@ function CommentNode({
 export default function ProductPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
-  const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user, deletePost } =
+  const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user, deletePost, isAdmin, addReport } =
     useStore()
   const post = getPost(params.id)
   const [chatOpen, setChatOpen] = useState(false)
@@ -265,7 +265,15 @@ export default function ProductPage() {
   }
 
   function handleSubmitReport() {
-    if (!reportReason) return
+    if (!reportReason || !post) return
+    addReport({
+      postId: post.id,
+      postTitle: post.title,
+      reason: reportReason,
+      detail: reportDetail.trim() || undefined,
+      reporterId: user?.email,
+      reporterNickname: user?.nickname,
+    })
     setReportOpen(false)
     window.alert("정상 접수되었습니다.")
   }
@@ -283,6 +291,8 @@ export default function ProductPage() {
 
   const liked = post ? likedIds.includes(post.id) : false
   const isOwner = !!post && !!user && post.sellerId === user.email
+  // 관리자는 모든 상품을 삭제할 수 있습니다.
+  const canDelete = isOwner || isAdmin
 
   function handleEdit() {
     if (!post) return
@@ -356,23 +366,25 @@ export default function ProductPage() {
               </p>
               <p className="mt-1 text-xs text-muted-foreground">{formatDate(post.createdAt)} 등록</p>
 
-              {isOwner && (
+              {(isOwner || canDelete) && (
                 <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleEdit}
-                    className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-                  >
-                    <Pencil className="size-3.5" />
-                    수정
-                  </button>
+                  {isOwner && (
+                    <button
+                      type="button"
+                      onClick={handleEdit}
+                      className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                    >
+                      <Pencil className="size-3.5" />
+                      수정
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleDelete}
                     className="flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="size-3.5" />
-                    삭제
+                    {isAdmin && !isOwner ? "관리자 삭제" : "삭제"}
                   </button>
                 </div>
               )}

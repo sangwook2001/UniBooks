@@ -42,13 +42,29 @@ export type Post = {
   createdAt: number
 }
 
-type User = { id: string; email: string; nickname: string; school?: string }
+type User = { id: string; email: string; nickname: string; school?: string; isAdmin?: boolean }
+
+// 관리자 계정 (모든 상품 삭제 권한 + 신고 설문 취합)
+export const ADMIN_EMAIL = "admin@unibooks.kr"
+export const ADMIN_PASSWORD = "unibooks-admin!2024"
+
+export type Report = {
+  id: string
+  postId: string
+  postTitle: string
+  reason: string
+  detail?: string
+  reporterId?: string
+  reporterNickname?: string
+  createdAt: number
+}
 
 type StoreContextType = {
   ready: boolean
   school: string | null
   setSchool: (s: string) => void
   user: User | null
+  isAdmin: boolean
   login: (email: string, nickname?: string, school?: string) => void
   logout: () => void
   registerUser: (email: string, nickname: string, school: string) => void
@@ -65,6 +81,10 @@ type StoreContextType = {
   addReply: (postId: string, commentId: string, text: string) => void
   editComment: (postId: string, commentId: string, text: string) => void
   deleteComment: (postId: string, commentId: string) => void
+  reports: Report[]
+  addReport: (r: Omit<Report, "id" | "createdAt">) => void
+  deleteReport: (id: string) => void
+  clearReports: () => void
   recentIds: string[]
   pushRecent: (id: string) => void
   removeRecent: (id: string) => void
@@ -78,6 +98,7 @@ const RECENT_KEY = "unibooks.recent"
 const USER_KEY = "unibooks.user"
 const NICK_KEY = "unibooks.nicknames"
 const LIKED_KEY = "unibooks.liked"
+const REPORTS_KEY = "unibooks.reports"
 
 // 찜 목록은 사용자별로 저장합니다.
 function likedKeyFor(email?: string | null) {
@@ -188,6 +209,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [recentIds, setRecentIds] = useState<string[]>([])
   const [nicknames, setNicknames] = useState<string[]>([])
   const [likedIds, setLikedIds] = useState<string[]>([])
+  const [reports, setReports] = useState<Report[]>([])
 
   useEffect(() => {
     try {
@@ -220,6 +242,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // 로그인한 사용자의 찜 목록만 불러옵니다. (비로그인 시 비움)
       const l = loadedUser ? localStorage.getItem(likedKeyFor(loadedUser.email)) : null
       if (l) setLikedIds(JSON.parse(l))
+      const rep = localStorage.getItem(REPORTS_KEY)
+      if (rep) setReports(JSON.parse(rep))
     } catch {
       // ignore
     }
@@ -244,6 +268,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         } else if (e.key === SCHOOL_KEY) setSchoolState(e.newValue ?? null)
         else if (e.key === POSTS_KEY) setPosts(e.newValue ? JSON.parse(e.newValue) : [])
         else if (e.key === NICK_KEY) setNicknames(e.newValue ? JSON.parse(e.newValue) : [])
+        else if (e.key === REPORTS_KEY) setReports(e.newValue ? JSON.parse(e.newValue) : [])
         else if (e.key === RECENT_KEY) setRecentIds(e.newValue ? JSON.parse(e.newValue) : [])
       } catch {
         // ignore
@@ -267,7 +292,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback((email: string, nickname?: string, userSchool?: string) => {
-    const u: User = { id: email, email, nickname: nickname ?? email.split("@")[0], school: userSchool }
+    const admin = email.toLowerCase() === ADMIN_EMAIL
+    const u: User = {
+      id: email,
+      email,
+      nickname: admin ? "관리자" : nickname ?? email.split("@")[0],
+      school: userSchool,
+      isAdmin: admin,
+    }
     setUser(u)
     localStorage.setItem(USER_KEY, JSON.stringify(u))
     // 이 사용자의 찜 목록을 불러옵니다.
@@ -353,6 +385,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     [persistPosts],
   )
+
+  const persistReports = useCallback((next: Report[]) => {
+    localStorage.setItem(REPORTS_KEY, JSON.stringify(next))
+    return next
+  }, [])
+
+  const addReport = useCallback(
+    (r: Omit<Report, "id" | "createdAt">) => {
+      const report: Report = { ...r, id: Math.random().toString(36).slice(2, 10), createdAt: Date.now() }
+      setReports((prev) => persistReports([report, ...prev]))
+    },
+    [persistReports],
+  )
+
+  const deleteReport = useCallback(
+    (id: string) => {
+      setReports((prev) => persistReports(prev.filter((r) => r.id !== id)))
+    },
+    [persistReports],
+  )
+
+  const clearReports = useCallback(() => {
+    setReports(persistReports([]))
+  }, [persistReports])
 
   const incrementViews = useCallback(
     (id: string) => {
@@ -479,6 +535,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       school,
       setSchool,
       user,
+      isAdmin: !!user?.isAdmin,
       login,
       logout,
       registerUser,
@@ -495,6 +552,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addReply,
       editComment,
       deleteComment,
+      reports,
+      addReport,
+      deleteReport,
+      clearReports,
       recentIds,
       pushRecent,
       removeRecent,
@@ -520,6 +581,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addReply,
       editComment,
       deleteComment,
+      reports,
+      addReport,
+      deleteReport,
+      clearReports,
       recentIds,
       pushRecent,
       removeRecent,

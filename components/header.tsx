@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Search, User, ChevronDown } from "lucide-react"
+import { Search, User, ChevronDown, ShieldCheck } from "lucide-react"
 import { useStore } from "@/lib/store"
 
 export function Header({
@@ -66,18 +66,31 @@ export function Header({
             )}
 
             {user ? (
-              <Link
-                href="/profile"
-                aria-label="마이페이지"
-                className="flex items-center gap-2 rounded-full px-2 py-1.5 text-foreground hover:bg-muted sm:border sm:border-border sm:px-3 sm:py-2"
-              >
-                <span className="hidden max-w-28 truncate text-sm font-medium sm:inline">
-                  {user.nickname}
-                </span>
-                <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary sm:size-6">
-                  <User className="size-4" />
-                </span>
-              </Link>
+              user.isAdmin ? (
+                <Link
+                  href="/admin"
+                  aria-label="관리자 대시보드"
+                  className="flex items-center gap-2 rounded-full px-2 py-1.5 text-foreground hover:bg-muted sm:border sm:border-border sm:px-3 sm:py-2"
+                >
+                  <span className="hidden text-sm font-medium sm:inline">관리자</span>
+                  <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary sm:size-6">
+                    <ShieldCheck className="size-4" />
+                  </span>
+                </Link>
+              ) : (
+                <Link
+                  href="/profile"
+                  aria-label="마이페이지"
+                  className="flex items-center gap-2 rounded-full px-2 py-1.5 text-foreground hover:bg-muted sm:border sm:border-border sm:px-3 sm:py-2"
+                >
+                  <span className="hidden max-w-28 truncate text-sm font-medium sm:inline">
+                    {user.nickname}
+                  </span>
+                  <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary sm:size-6">
+                    <User className="size-4" />
+                  </span>
+                </Link>
+              )
             ) : (
               <>
                 {/* 데스크톱 로그인 버튼 */}
