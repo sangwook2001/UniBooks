@@ -63,9 +63,11 @@ export default function AddPage() {
   const [condition, setCondition] = useState("")
   const [openChat, setOpenChat] = useState("")
   const [description, setDescription] = useState("")
-  const [image, setImage] = useState<string | null>(null)
+  const [images, setImages] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
   const prefilledRef = useRef(false)
+
+  const MAX_IMAGES = 5
 
   // 수정 모드일 때 폼을 한 번 채워줍니다.
   useEffect(() => {
@@ -81,23 +83,39 @@ export default function AddPage() {
       setCondition(editingPost.condition)
       setOpenChat(editingPost.openChatUrl)
       setDescription(editingPost.description ?? "")
-      setImage(editingPost.image ?? null)
+      setImages(
+        editingPost.images && editingPost.images.length > 0
+          ? editingPost.images
+          : editingPost.image
+            ? [editingPost.image]
+            : [],
+      )
     }
   }, [editingPost])
 
   const showDeptGrade = category === "전공" || category === "교양"
 
   function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setImage(reader.result as string)
-    reader.readAsDataURL(file)
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    const remaining = MAX_IMAGES - images.length
+    const toAdd = files.slice(0, remaining)
+    toAdd.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = () => setImages((prev) => (prev.length >= MAX_IMAGES ? prev : [...prev, reader.result as string]))
+      reader.readAsDataURL(file)
+    })
+    // 같은 파일을 다시 선택할 수 있도록 입력값 초기화
+    e.target.value = ""
+  }
+
+  function removeImage(index: number) {
+    setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
   // 필수: 사진, 제목, 저자, 가격, 분류, 상태, 오픈채팅 링크 + (전공/교양일 때 학과/교양분류·학년). 설명은 선택.
   const missing =
-    !image ||
+    images.length === 0 ||
     !title.trim() ||
     !author.trim() ||
     !priceStr ||
@@ -121,7 +139,8 @@ export default function AddPage() {
       grade: showDeptGrade ? grade : undefined,
       openChatUrl: openChat.trim(),
       description: description.trim() || undefined,
-      image: image ?? undefined,
+      images,
+      image: images[0],
       school: postSchool,
     }
     if (isEdit && editId) {
@@ -154,31 +173,51 @@ export default function AddPage() {
             </div>
           </Field>
 
-          {/* 사진 */}
-          <Field label="사진" required error={submitted && !image ? "사진을 등록해주세요." : ""}>
-            <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickImage} />
-            {image ? (
-              <div className="relative size-32 overflow-hidden rounded-lg border border-border">
-                <Image src={image || "/placeholder.svg"} alt="미리보기" fill className="object-cover" />
+          {/* 사진 (최대 5장) */}
+          <Field
+            label={`사진 (${images.length}/${MAX_IMAGES})`}
+            required
+            error={submitted && images.length === 0 ? "사진을 등록해주세요." : ""}
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={onPickImage}
+            />
+            <div className="flex flex-wrap gap-2">
+              {images.map((img, i) => (
+                <div key={i} className="relative size-24 overflow-hidden rounded-lg border border-border">
+                  <Image src={img || "/placeholder.svg"} alt={`사진 ${i + 1}`} fill className="object-cover" />
+                  {i === 0 && (
+                    <span className="absolute left-1 top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                      대표
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute right-1 top-1 rounded-full bg-foreground/70 p-1 text-background"
+                    aria-label="사진 삭제"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+              {images.length < MAX_IMAGES && (
                 <button
                   type="button"
-                  onClick={() => setImage(null)}
-                  className="absolute right-1 top-1 rounded-full bg-foreground/70 p-1 text-background"
-                  aria-label="사진 삭제"
+                  onClick={() => fileRef.current?.click()}
+                  className="flex size-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-muted-foreground hover:bg-muted"
                 >
-                  <X className="size-3.5" />
+                  <ImagePlus className="size-6" />
+                  <span className="text-xs">사진 등록</span>
                 </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="flex size-32 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-muted-foreground hover:bg-muted"
-              >
-                <ImagePlus className="size-6" />
-                <span className="text-xs">사진 등록</span>
-              </button>
-            )}
+              )}
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">첫 번째 사진이 대표 이미지로 사용됩니다.</p>
           </Field>
 
           {/* 제목 */}

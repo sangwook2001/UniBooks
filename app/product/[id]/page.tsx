@@ -197,6 +197,7 @@ export default function ProductPage() {
   const [reportReason, setReportReason] = useState("")
   const [reportDetail, setReportDetail] = useState("")
   const [comment, setComment] = useState("")
+  const [activeImage, setActiveImage] = useState(0)
   const viewedRef = useRef(false)
 
   useEffect(() => {
@@ -229,7 +230,7 @@ export default function ProductPage() {
     try {
       await navigator.clipboard.writeText(shareUrl)
     } catch {
-      // 클립보드 접근이 ��힌 환���(iframe 등) 대비 폴백
+      // 클립보드 접근이 ��힌 환�����(iframe 등) 대비 폴백
       const ta = document.createElement("textarea")
       ta.value = shareUrl
       document.body.appendChild(ta)
@@ -324,6 +325,14 @@ export default function ProductPage() {
     ? post.comments.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0)
     : 0
 
+  const gallery = post
+    ? post.images && post.images.length > 0
+      ? post.images
+      : post.image
+        ? [post.image]
+        : []
+    : []
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card">
@@ -339,10 +348,15 @@ export default function ProductPage() {
         <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
           <div className="flex flex-col gap-8 md:flex-row md:gap-10">
             {/* 왼쪽: 큰 사진 */}
-            <div className="w-full md:w-1/2">
+            <div className="flex w-full flex-col gap-3 md:w-1/2">
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted">
-                {post.image ? (
-                  <Image src={post.image || "/placeholder.svg"} alt={post.title} fill className="object-cover" />
+                {gallery.length > 0 ? (
+                  <Image
+                    src={gallery[activeImage] || "/placeholder.svg"}
+                    alt={post.title}
+                    fill
+                    className="object-cover"
+                  />
                 ) : (
                   <div className="flex size-full items-center justify-center text-muted-foreground">
                     <BookOpen className="size-12" />
@@ -361,6 +375,26 @@ export default function ProductPage() {
                   </div>
                 )}
               </div>
+
+              {/* 썸네일 (사진 2장 이상일 때) */}
+              {gallery.length > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  {gallery.map((img, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setActiveImage(i)}
+                      className={cn(
+                        "relative size-16 overflow-hidden rounded-lg border-2",
+                        i === activeImage ? "border-primary" : "border-border",
+                      )}
+                      aria-label={`사진 ${i + 1} 보기`}
+                    >
+                      <Image src={img || "/placeholder.svg"} alt={`사진 ${i + 1}`} fill className="object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* 오른쪽: 정보 */}
