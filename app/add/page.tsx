@@ -41,6 +41,7 @@ export default function AddPage() {
   useEffect(() => {
     if (ready && user && editId) {
       const p = getPost(editId)
+      console.log("[v0] edit check:", { editId, found: !!p, sellerId: p?.sellerId, userId: user.id, match: p?.sellerId === user.id })
       if (!p) {
         window.alert("게시글을 찾을 수 없습니다.")
         router.replace("/")
