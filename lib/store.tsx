@@ -79,6 +79,11 @@ const USER_KEY = "unibooks.user"
 const NICK_KEY = "unibooks.nicknames"
 const LIKED_KEY = "unibooks.liked"
 
+// 찜 목록은 사용자별로 저장합니다.
+function likedKeyFor(email?: string | null) {
+  return email ? `${LIKED_KEY}.${email}` : LIKED_KEY
+}
+
 function hashSchool(s: string): string {
   let h = 0
   for (let i = 0; i < s.length; i++) {
@@ -208,10 +213,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const r = localStorage.getItem(RECENT_KEY)
       if (r) setRecentIds(JSON.parse(r))
       const u = localStorage.getItem(USER_KEY)
-      if (u) setUser(JSON.parse(u))
+      const loadedUser = u ? (JSON.parse(u) as User) : null
+      if (loadedUser) setUser(loadedUser)
       const n = localStorage.getItem(NICK_KEY)
       if (n) setNicknames(JSON.parse(n))
-      const l = localStorage.getItem(LIKED_KEY)
+      // 로그인한 사용자의 찜 목록만 불러옵니다. (비로그인 시 비움)
+      const l = loadedUser ? localStorage.getItem(likedKeyFor(loadedUser.email)) : null
       if (l) setLikedIds(JSON.parse(l))
     } catch {
       // ignore
@@ -224,11 +231,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     function onStorage(e: StorageEvent) {
       if (!e.key) return
       try {
-        if (e.key === USER_KEY) setUser(e.newValue ? JSON.parse(e.newValue) : null)
-        else if (e.key === SCHOOL_KEY) setSchoolState(e.newValue ?? null)
+        if (e.key === USER_KEY) {
+          const newUser = e.newValue ? (JSON.parse(e.newValue) as User) : null
+          setUser(newUser)
+          // 사용자가 바뀌면 그 사용자의 찜 목록으로 교체합니다.
+          if (newUser) {
+            const l = localStorage.getItem(likedKeyFor(newUser.email))
+            setLikedIds(l ? JSON.parse(l) : [])
+          } else {
+            setLikedIds([])
+          }
+        } else if (e.key === SCHOOL_KEY) setSchoolState(e.newValue ?? null)
         else if (e.key === POSTS_KEY) setPosts(e.newValue ? JSON.parse(e.newValue) : [])
         else if (e.key === NICK_KEY) setNicknames(e.newValue ? JSON.parse(e.newValue) : [])
-        else if (e.key === LIKED_KEY) setLikedIds(e.newValue ? JSON.parse(e.newValue) : [])
         else if (e.key === RECENT_KEY) setRecentIds(e.newValue ? JSON.parse(e.newValue) : [])
       } catch {
         // ignore
@@ -255,6 +270,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const u: User = { id: email, email, nickname: nickname ?? email.split("@")[0], school: userSchool }
     setUser(u)
     localStorage.setItem(USER_KEY, JSON.stringify(u))
+    // 이 사용자의 찜 목록을 불러옵니다.
+    try {
+      const l = localStorage.getItem(likedKeyFor(email))
+      setLikedIds(l ? JSON.parse(l) : [])
+    } catch {
+      setLikedIds([])
+    }
     if (userSchool) {
       setSchoolState(userSchool)
       localStorage.setItem(SCHOOL_KEY, userSchool)
@@ -264,6 +286,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setUser(null)
     localStorage.removeItem(USER_KEY)
+    // 로그아웃하면 화면에서 찜 표시를 비웁니다. (저장된 찜 목록은 다음 로그인 시 복원)
+    setLikedIds([])
   }, [])
 
   const isNicknameTaken = useCallback(
@@ -339,17 +363,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const toggleLike = useCallback(
     (id: string) => {
+      // 로그인한 사용자만 찜할 수 있습니다.
+      if (!user) return
       const liked = likedIds.includes(id)
       const nextLiked = liked ? likedIds.filter((x) => x !== id) : [...likedIds, id]
       setLikedIds(nextLiked)
-      localStorage.setItem(LIKED_KEY, JSON.stringify(nextLiked))
+      localStorage.setItem(likedKeyFor(user.email), JSON.stringify(nextLiked))
       setPosts((prev) =>
         persistPosts(
           prev.map((p) => (p.id === id ? { ...p, likes: Math.max(0, p.likes + (liked ? -1 : 1)) } : p)),
         ),
       )
     },
-    [likedIds, persistPosts],
+    [user, likedIds, persistPosts],
   )
 
   const makeComment = useCallback(
