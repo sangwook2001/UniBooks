@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -18,10 +18,30 @@ import {
 import { formatNumberInput, parseNumber } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
+// 🟢 1. 최상단 메인 컴포넌트 (Vercel 빌드 패스용 Suspense 방어막)
 export default function AddPage() {
-  const router = useRouter()
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">페이지 로딩 중...</p>
+      </div>
+    }>
+      <AddPageWithParams />
+    </Suspense>
+  )
+}
+
+// 🟢 2. useSearchParams() 격리용 컴포넌트
+function AddPageWithParams() {
   const searchParams = useSearchParams()
   const editId = searchParams.get("edit")
+  
+  return <AddPageContent editId={editId} />
+}
+
+// 🟢 3. v0가 새로 짜준 모든 멀티 업로드 및 소유권 검증용 메인 알맹이 컴포넌트
+function AddPageContent({ editId }: { editId: string | null }) {
+  const router = useRouter()
   const { school, addPost, updatePost, getPost, user, ready } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const editingPost = editId ? getPost(editId) : undefined
@@ -113,7 +133,7 @@ export default function AddPage() {
     setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // 필수: 사진, 제목, 저자, 가격, 분류, 상태, 오픈채팅 링크 + (전공/교양일 때 학과/교양분류·학년). 설명은 선택.
+  // 필수 항목 체크
   const missing =
     images.length === 0 ||
     !title.trim() ||
@@ -165,7 +185,7 @@ export default function AddPage() {
 
       <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
         <div className="flex flex-col gap-6">
-          {/* 등록 학교 (본인 학교 고정) */}
+          {/* 등록 학교 */}
           <Field label="등록 학교">
             <div className="flex items-center justify-between rounded-lg border border-border bg-muted px-3 py-2.5 text-sm">
               <span className="font-medium text-foreground">{postSchool || "학교 미설정"}</span>
@@ -283,7 +303,6 @@ export default function AddPage() {
             </Field>
           )}
 
-          {/* 교양 분류 */}
           {category === "교양" && (
             <Field
               label="교양 분류"
@@ -300,7 +319,6 @@ export default function AddPage() {
             </Field>
           )}
 
-          {/* 학년 (전공/교양만) */}
           {showDeptGrade && (
             <Field label="학년" required error={submitted && !grade ? "학년을 선택해주세요." : ""}>
               <div className="flex flex-wrap gap-2">
@@ -337,7 +355,7 @@ export default function AddPage() {
             />
           </Field>
 
-          {/* 설명 (선택) */}
+          {/* 설명 */}
           <Field label="설명 (선택)">
             <textarea
               value={description}
