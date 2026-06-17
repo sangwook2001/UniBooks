@@ -37,15 +37,16 @@ export default function AddPage() {
     }
   }, [ready, user, router])
 
-  // 수정 모드: 본인 게시글이 아니면 차단
+  // 수정 모드: 본인 게시글(또는 관리자)이 아니면 차단
   useEffect(() => {
     if (ready && user && editId) {
       const p = getPost(editId)
-      console.log("[v0] edit check:", { editId, found: !!p, sellerId: p?.sellerId, userId: user.id, match: p?.sellerId === user.id })
       if (!p) {
-        window.alert("게시글을 찾을 수 없습니다.")
-        router.replace("/")
-      } else if (p.sellerId !== user.id) {
+        // 목록이 아직 로딩 중일 수 있으므로 게시글이 없으면 잠시 대기 후 판단
+        return
+      }
+      const owns = String(p.sellerId ?? "").trim() === String(user.id ?? "").trim()
+      if (!owns && !user.isAdmin) {
         window.alert("본인이 등록한 상품만 수정할 수 있습니다.")
         router.replace(`/product/${editId}`)
       }
