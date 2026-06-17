@@ -20,6 +20,8 @@ import {
   Trash2,
   Clock,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { useStore, type Comment as CommentType } from "@/lib/store"
 import { formatPrice, formatDate, postTag } from "@/lib/format"
@@ -198,6 +200,7 @@ export default function ProductPage() {
   const [reportDetail, setReportDetail] = useState("")
   const [comment, setComment] = useState("")
   const [activeImage, setActiveImage] = useState(0)
+  const touchStartX = useRef<number | null>(null)
   const viewedRef = useRef(false)
 
   useEffect(() => {
@@ -333,6 +336,22 @@ export default function ProductPage() {
         : []
     : []
 
+  const goPrev = () => setActiveImage((i) => (i === 0 ? gallery.length - 1 : i - 1))
+  const goNext = () => setActiveImage((i) => (i === gallery.length - 1 ? 0 : i + 1))
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return
+    const diff = e.changedTouches[0].clientX - touchStartX.current
+    if (Math.abs(diff) > 40) {
+      if (diff < 0) goNext()
+      else goPrev()
+    }
+    touchStartX.current = null
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card">
@@ -349,7 +368,11 @@ export default function ProductPage() {
           <div className="flex flex-col gap-8 md:flex-row md:gap-10">
             {/* 왼쪽: 큰 사진 */}
             <div className="flex w-full flex-col gap-3 md:w-1/2">
-              <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted">
+              <div
+                className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted"
+                onTouchStart={onTouchStart}
+                onTouchEnd={onTouchEnd}
+              >
                 {gallery.length > 0 ? (
                   <Image
                     src={gallery[activeImage] || "/placeholder.svg"}
@@ -362,6 +385,45 @@ export default function ProductPage() {
                     <BookOpen className="size-12" />
                   </div>
                 )}
+
+                {/* 좌우 화살표 (사진 2장 이상일 때) */}
+                {gallery.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={goPrev}
+                      aria-label="이전 사진"
+                      className="absolute left-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm hover:bg-background"
+                    >
+                      <ChevronLeft className="size-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goNext}
+                      aria-label="다음 사진"
+                      className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm hover:bg-background"
+                    >
+                      <ChevronRight className="size-5" />
+                    </button>
+                    {/* 사진 번호 */}
+                    <span className="absolute bottom-2 right-2 rounded-full bg-foreground/70 px-2.5 py-1 text-xs font-medium text-background">
+                      {activeImage + 1} / {gallery.length}
+                    </span>
+                    {/* 점 인디케이터 */}
+                    <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
+                      {gallery.map((_, i) => (
+                        <span
+                          key={i}
+                          className={cn(
+                            "size-1.5 rounded-full",
+                            i === activeImage ? "bg-background" : "bg-background/50",
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
                 {post.status !== "판매중" && (
                   <div className="absolute inset-0 flex items-center justify-center bg-foreground/45">
                     <span

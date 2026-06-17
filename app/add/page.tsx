@@ -175,7 +175,7 @@ export default function AddPage() {
 
           {/* 사진 (최대 5장) */}
           <Field
-            label={`사진 (${images.length}/${MAX_IMAGES})`}
+            label={`사진 (최대 ${MAX_IMAGES}장)`}
             required
             error={submitted && images.length === 0 ? "사진을 등록해주세요." : ""}
           >
