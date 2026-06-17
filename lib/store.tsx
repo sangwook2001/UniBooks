@@ -6,14 +6,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
 import type { Category } from "./data"
+import { createClient } from "./supabase/client"
 
 export type Comment = {
   id: string
-  authorId?: string // 작성자 이메일(판매자 여부 판별용)
+  authorId?: string // 작성자 아이디(판매자 여부 판별용)
   author: string // 닉네임
   text: string
   createdAt: number
@@ -46,7 +48,6 @@ type User = { id: string; email: string; nickname: string; school?: string; isAd
 
 // 관리자 계정 (모든 상품 삭제 권한 + 신고 설문 취합)
 export const ADMIN_EMAIL = "admin@unibooks.kr"
-export const ADMIN_PASSWORD = "unibooks-admin!2024"
 
 export type Report = {
   id: string
@@ -59,18 +60,22 @@ export type Report = {
   createdAt: number
 }
 
+export type AuthResult = { ok: boolean; error?: string; needsEmailConfirm?: boolean }
+
 type StoreContextType = {
   ready: boolean
   school: string | null
   setSchool: (s: string) => void
   user: User | null
   isAdmin: boolean
-  login: (email: string, nickname?: string, school?: string) => void
-  logout: () => void
-  registerUser: (email: string, nickname: string, school: string) => void
+  login: (email: string, password: string) => Promise<AuthResult>
+  logout: () => Promise<void>
+  registerUser: (email: string, password: string, nickname: string, school: string) => Promise<AuthResult>
   isNicknameTaken: (nickname: string) => boolean
   posts: Post[]
-  addPost: (p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">) => Post
+  addPost: (
+    p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">,
+  ) => Promise<Post>
   updatePost: (id: string, patch: Partial<Omit<Post, "id" | "createdAt" | "sellerId">>) => void
   deletePost: (id: string) => void
   getPost: (id: string) => Post | undefined
@@ -93,115 +98,123 @@ type StoreContextType = {
 const StoreContext = createContext<StoreContextType | null>(null)
 
 const SCHOOL_KEY = "unibooks.school"
-const POSTS_KEY = "unibooks.posts"
 const RECENT_KEY = "unibooks.recent"
-const USER_KEY = "unibooks.user"
-const NICK_KEY = "unibooks.nicknames"
-const LIKED_KEY = "unibooks.liked"
-const REPORTS_KEY = "unibooks.reports"
 
-// 찜 목록은 사용자별로 저장합니다.
-function likedKeyFor(email?: string | null) {
-  return email ? `${LIKED_KEY}.${email}` : LIKED_KEY
+// ===== DB row 타입 & 매핑 =====
+type PostRow = {
+  id: string
+  title: string
+  author: string
+  price: number
+  condition: string
+  category: string
+  department: string | null
+  liberal_group: string | null
+  grade: string | null
+  description: string | null
+  image: string | null
+  school: string
+  seller_id: string
+  seller_nickname: string
+  open_chat_url: string
+  views: number
+  likes: number
+  created_at: string
 }
 
-function hashSchool(s: string): string {
-  let h = 0
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) >>> 0
+type CommentRow = {
+  id: string
+  post_id: string
+  parent_id: string | null
+  author_id: string | null
+  author: string
+  text: string
+  created_at: string
+}
+
+type ReportRow = {
+  id: string
+  post_id: string | null
+  post_title: string
+  reason: string
+  detail: string | null
+  reporter_id: string | null
+  reporter_nickname: string | null
+  created_at: string
+}
+
+function mapComment(row: CommentRow): Comment {
+  return {
+    id: row.id,
+    authorId: row.author_id ?? undefined,
+    author: row.author,
+    text: row.text,
+    createdAt: Date.parse(row.created_at),
+    replies: [],
   }
-  return h.toString(36)
 }
 
-function demoPosts(school: string): Post[] {
-  const base = `s${hashSchool(school)}`
-  return [
-    {
-      id: `demo-${base}-1`,
-      title: "James Stewart 미분적분학 8판",
-      author: "James Stewart",
-      price: 18000,
-      condition: "상",
-      category: "전공",
-      department: "수학과",
-      grade: "1학년",
-      description: "필기 거의 없고 깨끗합니다. 직거래 선호해요.",
-      image: "/books/calculus.png",
-      school,
-      sellerId: `mathlover@unibooks.kr`,
-      sellerNickname: "수학덕후",
-      openChatUrl: "https://open.kakao.com/o/demo-math",
-      views: 142,
-      likes: 12,
-      comments: [
-        { id: "c1", author: "공대생", text: "혹시 판매 완료됐나요?", createdAt: Date.now() - 1000 * 60 * 40 },
-      ],
-      createdAt: Date.now() - 1000 * 60 * 60 * 2,
-    },
-    {
-      id: `demo-${base}-2`,
-      title: "맨큐의 경제학 (Principles of Economics)",
-      author: "N. Gregory Mankiw",
-      price: 25000,
-      condition: "중",
-      category: "전공",
-      department: "경제학과",
-      grade: "2학년",
-      description: "형광펜 필기 일부 있습니다.",
-      image: "/books/econ.png",
-      school,
-      sellerId: `econ_master@unibooks.kr`,
-      sellerNickname: "경제왕",
-      openChatUrl: "https://open.kakao.com/o/demo-econ",
-      views: 89,
-      likes: 5,
-      comments: [],
-      createdAt: Date.now() - 1000 * 60 * 60 * 5,
-    },
-    {
-      id: `demo-${base}-3`,
-      title: "심리학개론 (Introduction to Psychology)",
-      author: "James Kalat",
-      price: 12000,
-      condition: "상",
-      category: "교양",
-      liberalGroup: "인성·교양",
-      grade: "1학년",
-      description: "교양 수업 들으면서 본 책이에요.",
-      image: "/books/psych.png",
-      school,
-      sellerId: `book_dealer@unibooks.kr`,
-      sellerNickname: "책장수",
-      openChatUrl: "https://open.kakao.com/o/demo-psych",
-      views: 211,
-      likes: 24,
-      comments: [],
-      createdAt: Date.now() - 1000 * 60 * 60 * 24,
-    },
-    {
-      id: `demo-${base}-4`,
-      title: "College Writing 대학 영작문",
-      author: "Susan Anker",
-      price: 9000,
-      condition: "하",
-      category: "교양",
-      liberalGroup: "필수교양",
-      grade: "전체",
-      description: "필수 교양 영어 교재입니다.",
-      image: "/books/english.png",
-      school,
-      sellerId: `english99@unibooks.kr`,
-      sellerNickname: "영어달인",
-      openChatUrl: "https://open.kakao.com/o/demo-eng",
-      views: 67,
-      likes: 3,
-      comments: [],
-      createdAt: Date.now() - 1000 * 60 * 60 * 30,
-    },
-  ]
+function buildComments(rows: CommentRow[]): Record<string, Comment[]> {
+  // post_id -> 최상위 댓글(대댓글 nested) 목록
+  const byId = new Map<string, Comment>()
+  rows.forEach((r) => byId.set(r.id, mapComment(r)))
+  const byPost: Record<string, Comment[]> = {}
+  rows
+    .slice()
+    .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))
+    .forEach((r) => {
+      const c = byId.get(r.id)!
+      if (r.parent_id && byId.has(r.parent_id)) {
+        const parent = byId.get(r.parent_id)!
+        parent.replies = parent.replies ?? []
+        parent.replies.push(c)
+      } else {
+        byPost[r.post_id] = byPost[r.post_id] ?? []
+        byPost[r.post_id].push(c)
+      }
+    })
+  return byPost
+}
+
+function mapPost(row: PostRow, comments: Comment[]): Post {
+  return {
+    id: row.id,
+    title: row.title,
+    author: row.author,
+    price: row.price,
+    condition: row.condition,
+    category: row.category as Category,
+    department: row.department ?? undefined,
+    liberalGroup: row.liberal_group ?? undefined,
+    grade: row.grade ?? undefined,
+    description: row.description ?? undefined,
+    image: row.image ?? undefined,
+    school: row.school,
+    sellerId: row.seller_id,
+    sellerNickname: row.seller_nickname,
+    openChatUrl: row.open_chat_url,
+    views: row.views,
+    likes: row.likes,
+    comments,
+    createdAt: Date.parse(row.created_at),
+  }
+}
+
+function mapReport(row: ReportRow): Report {
+  return {
+    id: row.id,
+    postId: row.post_id ?? "",
+    postTitle: row.post_title,
+    reason: row.reason,
+    detail: row.detail ?? undefined,
+    reporterId: row.reporter_id ?? undefined,
+    reporterNickname: row.reporter_nickname ?? undefined,
+    createdAt: Date.parse(row.created_at),
+  }
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
+  const supabase = useMemo(() => createClient(), [])
   const [ready, setReady] = useState(false)
   const [school, setSchoolState] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
@@ -210,313 +223,491 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [nicknames, setNicknames] = useState<string[]>([])
   const [likedIds, setLikedIds] = useState<string[]>([])
   const [reports, setReports] = useState<Report[]>([])
+  const userRef = useRef<User | null>(null)
+  userRef.current = user
 
+  // 게시글 + 댓글 불러오기
+  const loadPosts = useCallback(async () => {
+    const [{ data: postRows }, { data: commentRows }] = await Promise.all([
+      supabase.from("posts").select("*").order("created_at", { ascending: false }),
+      supabase.from("comments").select("*"),
+    ])
+    const commentsByPost = buildComments((commentRows as CommentRow[]) ?? [])
+    const mapped = ((postRows as PostRow[]) ?? []).map((r) => mapPost(r, commentsByPost[r.id] ?? []))
+    setPosts(mapped)
+  }, [supabase])
+
+  // 닉네임 목록(중복 체크용)
+  const loadNicknames = useCallback(async () => {
+    const { data } = await supabase.from("profiles").select("nickname")
+    setNicknames(((data as { nickname: string }[]) ?? []).map((d) => d.nickname))
+  }, [supabase])
+
+  // 로그인 사용자 관련 데이터(프로필/찜/신고)
+  const loadUserData = useCallback(
+    async (authUser: { id: string; email?: string }) => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", authUser.id)
+        .maybeSingle()
+
+      const email = authUser.email ?? profile?.email ?? ""
+      const isAdmin = !!profile?.is_admin || email.toLowerCase() === ADMIN_EMAIL
+      const u: User = {
+        id: authUser.id,
+        email,
+        nickname: profile?.nickname ?? email.split("@")[0],
+        school: profile?.school ?? undefined,
+        isAdmin,
+      }
+      setUser(u)
+      if (u.school) {
+        setSchoolState(u.school)
+        try {
+          localStorage.setItem(SCHOOL_KEY, u.school)
+        } catch {
+          // ignore
+        }
+      }
+
+      // 찜 목록
+      const { data: likes } = await supabase.from("likes").select("post_id").eq("user_id", authUser.id)
+      setLikedIds(((likes as { post_id: string }[]) ?? []).map((l) => l.post_id))
+
+      // 신고(관리자만 조회 가능)
+      if (isAdmin) {
+        const { data: reportRows } = await supabase
+          .from("reports")
+          .select("*")
+          .order("created_at", { ascending: false })
+        setReports(((reportRows as ReportRow[]) ?? []).map(mapReport))
+      } else {
+        setReports([])
+      }
+    },
+    [supabase],
+  )
+
+  // 최초 로드 + 인증 상태 변화 구독
   useEffect(() => {
     try {
       const s = localStorage.getItem(SCHOOL_KEY)
       if (s) setSchoolState(s)
-      const p = localStorage.getItem(POSTS_KEY)
-      if (p) {
-        const parsed = JSON.parse(p) as Partial<Post>[]
-        const migrated = parsed
-          // 샘플 게시글은 가천대학교에만 남기고, 다른 학교의 옛 샘플은 제거합니다.
-          .filter((x) => !(String(x.id ?? "").startsWith("demo-") && x.school !== "가천대학교"))
-          .map((x) => ({
-            views: 0,
-            likes: 0,
-            comments: [],
-            sellerNickname: x.sellerId ? String(x.sellerId).split("@")[0] : "익명",
-            openChatUrl: "",
-            ...x,
-          })) as Post[]
-        setPosts(migrated)
-        localStorage.setItem(POSTS_KEY, JSON.stringify(migrated))
-      }
       const r = localStorage.getItem(RECENT_KEY)
       if (r) setRecentIds(JSON.parse(r))
-      const u = localStorage.getItem(USER_KEY)
-      const loadedUser = u ? (JSON.parse(u) as User) : null
-      if (loadedUser) setUser(loadedUser)
-      const n = localStorage.getItem(NICK_KEY)
-      if (n) setNicknames(JSON.parse(n))
-      // 로그인한 사용자의 찜 목록만 불러옵니다. (비로그인 시 비움)
-      const l = loadedUser ? localStorage.getItem(likedKeyFor(loadedUser.email)) : null
-      if (l) setLikedIds(JSON.parse(l))
-      const rep = localStorage.getItem(REPORTS_KEY)
-      if (rep) setReports(JSON.parse(rep))
     } catch {
       // ignore
     }
-    setReady(true)
-  }, [])
 
-  // 로그인/회원가입이 새 창에서 일어나도 원래 창이 즉시 반영되도록 동기화합니다.
-  useEffect(() => {
-    function onStorage(e: StorageEvent) {
-      if (!e.key) return
-      try {
-        if (e.key === USER_KEY) {
-          const newUser = e.newValue ? (JSON.parse(e.newValue) as User) : null
-          setUser(newUser)
-          // 사용자가 바뀌면 그 사용자의 찜 목록으로 교체합니다.
-          if (newUser) {
-            const l = localStorage.getItem(likedKeyFor(newUser.email))
-            setLikedIds(l ? JSON.parse(l) : [])
-          } else {
-            setLikedIds([])
-          }
-        } else if (e.key === SCHOOL_KEY) setSchoolState(e.newValue ?? null)
-        else if (e.key === POSTS_KEY) setPosts(e.newValue ? JSON.parse(e.newValue) : [])
-        else if (e.key === NICK_KEY) setNicknames(e.newValue ? JSON.parse(e.newValue) : [])
-        else if (e.key === REPORTS_KEY) setReports(e.newValue ? JSON.parse(e.newValue) : [])
-        else if (e.key === RECENT_KEY) setRecentIds(e.newValue ? JSON.parse(e.newValue) : [])
-      } catch {
-        // ignore
+    let active = true
+    async function init() {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser()
+      if (!active) return
+      await Promise.all([loadPosts(), loadNicknames()])
+      if (authUser) {
+        await loadUserData(authUser)
       }
+      if (active) setReady(true)
     }
-    window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
-  }, [])
+    init()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const authUser = session?.user
+      if (authUser) {
+        loadUserData(authUser)
+      } else {
+        setUser(null)
+        setLikedIds([])
+        setReports([])
+      }
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
+  }, [supabase, loadPosts, loadNicknames, loadUserData])
 
   const setSchool = useCallback((s: string) => {
     setSchoolState(s)
-    localStorage.setItem(SCHOOL_KEY, s)
-    // 샘플 게시글은 가천대학교에만 표시하고, 나머지 학교는 빈 저장소로 시작합니다.
-    if (s !== "가천대학교") return
-    setPosts((prev) => {
-      if (prev.some((p) => p.school === s)) return prev
-      const next = [...demoPosts(s), ...prev]
-      localStorage.setItem(POSTS_KEY, JSON.stringify(next))
-      return next
-    })
-  }, [])
-
-  const login = useCallback((email: string, nickname?: string, userSchool?: string) => {
-    const admin = email.toLowerCase() === ADMIN_EMAIL
-    const u: User = {
-      id: email,
-      email,
-      nickname: admin ? "관리자" : nickname ?? email.split("@")[0],
-      school: userSchool,
-      isAdmin: admin,
-    }
-    setUser(u)
-    localStorage.setItem(USER_KEY, JSON.stringify(u))
-    // 이 사용자의 찜 목록을 불러옵니다.
     try {
-      const l = localStorage.getItem(likedKeyFor(email))
-      setLikedIds(l ? JSON.parse(l) : [])
+      localStorage.setItem(SCHOOL_KEY, s)
     } catch {
-      setLikedIds([])
-    }
-    if (userSchool) {
-      setSchoolState(userSchool)
-      localStorage.setItem(SCHOOL_KEY, userSchool)
+      // ignore
     }
   }, [])
 
-  const logout = useCallback(() => {
+  const login = useCallback(
+    async (email: string, password: string): Promise<AuthResult> => {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) return { ok: false, error: error.message }
+      if (data.user) await loadUserData(data.user)
+      return { ok: true }
+    },
+    [supabase, loadUserData],
+  )
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut()
     setUser(null)
-    localStorage.removeItem(USER_KEY)
-    // 로그아웃하면 화면에서 찜 표시를 비웁니다. (저장된 찜 목록은 다음 로그인 시 복원)
     setLikedIds([])
-  }, [])
+    setReports([])
+  }, [supabase])
+
+  const registerUser = useCallback(
+    async (email: string, password: string, nickname: string, userSchool: string): Promise<AuthResult> => {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo:
+            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
+            (typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined),
+          data: { nickname, school: userSchool },
+        },
+      })
+      if (error) return { ok: false, error: error.message }
+      setSchool(userSchool)
+      loadNicknames()
+      // 세션이 바로 생기면(이메일 확인 비활성화) 로그인 처리
+      if (data.session && data.user) {
+        await loadUserData(data.user)
+        return { ok: true }
+      }
+      return { ok: true, needsEmailConfirm: true }
+    },
+    [supabase, setSchool, loadNicknames, loadUserData],
+  )
 
   const isNicknameTaken = useCallback(
     (nickname: string) => {
       const n = nickname.trim().toLowerCase()
-      const reserved = ["수학덕후", "경제왕", "책장수", "영어달인", "admin", "운영자"]
-      return reserved.includes(n) || nicknames.some((x) => x.toLowerCase() === n)
+      return nicknames.some((x) => x.toLowerCase() === n)
     },
     [nicknames],
   )
 
-  const registerUser = useCallback(
-    (email: string, nickname: string, userSchool: string) => {
-      setNicknames((prev) => {
-        const next = [...prev, nickname]
-        localStorage.setItem(NICK_KEY, JSON.stringify(next))
-        return next
-      })
-      login(email, nickname, userSchool)
-    },
-    [login],
-  )
-
   const addPost = useCallback(
-    (p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">) => {
+    async (
+      p: Omit<Post, "id" | "createdAt" | "sellerId" | "sellerNickname" | "views" | "likes" | "comments">,
+    ) => {
+      const current = userRef.current
+      const id = crypto.randomUUID()
+      const createdAt = Date.now()
       const post: Post = {
         ...p,
-        id: Math.random().toString(36).slice(2, 10),
-        createdAt: Date.now(),
-        sellerId: user?.email ?? "guest@unibooks.kr",
-        sellerNickname: user?.nickname ?? "익명",
+        id,
+        createdAt,
+        sellerId: current?.id ?? "",
+        sellerNickname: current?.nickname ?? "익명",
         views: 0,
         likes: 0,
         comments: [],
       }
-      setPosts((prev) => {
-        const next = [post, ...prev]
-        localStorage.setItem(POSTS_KEY, JSON.stringify(next))
-        return next
+      // 낙관적 업데이트
+      setPosts((prev) => [post, ...prev])
+      const { error } = await supabase.from("posts").insert({
+        id,
+        title: p.title,
+        author: p.author,
+        price: p.price,
+        condition: p.condition,
+        category: p.category,
+        department: p.department ?? null,
+        liberal_group: p.liberalGroup ?? null,
+        grade: p.grade ?? null,
+        description: p.description ?? null,
+        image: p.image ?? null,
+        school: p.school,
+        seller_id: current?.id ?? "",
+        seller_nickname: current?.nickname ?? "익명",
+        open_chat_url: p.openChatUrl,
       })
+      if (error) {
+        console.log("[v0] addPost error:", error.message)
+        setPosts((prev) => prev.filter((x) => x.id !== id))
+      }
       return post
     },
-    [user],
+    [supabase],
   )
 
   const getPost = useCallback((id: string) => posts.find((p) => p.id === id), [posts])
 
-  const persistPosts = useCallback((next: Post[]) => {
-    localStorage.setItem(POSTS_KEY, JSON.stringify(next))
-    return next
-  }, [])
-
   const updatePost = useCallback(
     (id: string, patch: Partial<Omit<Post, "id" | "createdAt" | "sellerId">>) => {
-      setPosts((prev) => persistPosts(prev.map((p) => (p.id === id ? { ...p, ...patch } : p))))
+      setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
+      const dbPatch: Record<string, unknown> = {}
+      if (patch.title !== undefined) dbPatch.title = patch.title
+      if (patch.author !== undefined) dbPatch.author = patch.author
+      if (patch.price !== undefined) dbPatch.price = patch.price
+      if (patch.condition !== undefined) dbPatch.condition = patch.condition
+      if (patch.category !== undefined) dbPatch.category = patch.category
+      if (patch.department !== undefined) dbPatch.department = patch.department ?? null
+      if (patch.liberalGroup !== undefined) dbPatch.liberal_group = patch.liberalGroup ?? null
+      if (patch.grade !== undefined) dbPatch.grade = patch.grade ?? null
+      if (patch.description !== undefined) dbPatch.description = patch.description ?? null
+      if (patch.image !== undefined) dbPatch.image = patch.image ?? null
+      if (patch.openChatUrl !== undefined) dbPatch.open_chat_url = patch.openChatUrl
+      if (patch.school !== undefined) dbPatch.school = patch.school
+      supabase
+        .from("posts")
+        .update(dbPatch)
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) console.log("[v0] updatePost error:", error.message)
+        })
     },
-    [persistPosts],
+    [supabase],
   )
 
   const deletePost = useCallback(
     (id: string) => {
-      setPosts((prev) => persistPosts(prev.filter((p) => p.id !== id)))
+      setPosts((prev) => prev.filter((p) => p.id !== id))
+      supabase
+        .from("posts")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) console.log("[v0] deletePost error:", error.message)
+        })
     },
-    [persistPosts],
+    [supabase],
   )
-
-  const persistReports = useCallback((next: Report[]) => {
-    localStorage.setItem(REPORTS_KEY, JSON.stringify(next))
-    return next
-  }, [])
 
   const addReport = useCallback(
     (r: Omit<Report, "id" | "createdAt">) => {
-      const report: Report = { ...r, id: Math.random().toString(36).slice(2, 10), createdAt: Date.now() }
-      setReports((prev) => persistReports([report, ...prev]))
+      const current = userRef.current
+      supabase
+        .from("reports")
+        .insert({
+          post_id: r.postId || null,
+          post_title: r.postTitle,
+          reason: r.reason,
+          detail: r.detail ?? null,
+          reporter_id: current?.id ?? null,
+          reporter_nickname: r.reporterNickname ?? current?.nickname ?? null,
+        })
+        .then(({ error }) => {
+          if (error) console.log("[v0] addReport error:", error.message)
+        })
     },
-    [persistReports],
+    [supabase],
   )
 
   const deleteReport = useCallback(
     (id: string) => {
-      setReports((prev) => persistReports(prev.filter((r) => r.id !== id)))
+      setReports((prev) => prev.filter((r) => r.id !== id))
+      supabase
+        .from("reports")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) console.log("[v0] deleteReport error:", error.message)
+        })
     },
-    [persistReports],
+    [supabase],
   )
 
   const clearReports = useCallback(() => {
-    setReports(persistReports([]))
-  }, [persistReports])
+    const ids = reports.map((r) => r.id)
+    setReports([])
+    if (ids.length) {
+      supabase
+        .from("reports")
+        .delete()
+        .in("id", ids)
+        .then(({ error }) => {
+          if (error) console.log("[v0] clearReports error:", error.message)
+        })
+    }
+  }, [supabase, reports])
 
   const incrementViews = useCallback(
     (id: string) => {
-      setPosts((prev) => persistPosts(prev.map((p) => (p.id === id ? { ...p, views: p.views + 1 } : p))))
+      let nextViews = 0
+      setPosts((prev) =>
+        prev.map((p) => {
+          if (p.id === id) {
+            nextViews = p.views + 1
+            return { ...p, views: nextViews }
+          }
+          return p
+        }),
+      )
+      supabase
+        .from("posts")
+        .update({ views: nextViews })
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) console.log("[v0] incrementViews error:", error.message)
+        })
     },
-    [persistPosts],
+    [supabase],
   )
 
   const toggleLike = useCallback(
     (id: string) => {
-      // 로그인한 사용자만 찜할 수 있습니다.
-      if (!user) return
+      const current = userRef.current
+      if (!current) return
       const liked = likedIds.includes(id)
-      const nextLiked = liked ? likedIds.filter((x) => x !== id) : [...likedIds, id]
-      setLikedIds(nextLiked)
-      localStorage.setItem(likedKeyFor(user.email), JSON.stringify(nextLiked))
+      // 낙관적 업데이트
+      setLikedIds((prev) => (liked ? prev.filter((x) => x !== id) : [...prev, id]))
       setPosts((prev) =>
-        persistPosts(
-          prev.map((p) => (p.id === id ? { ...p, likes: Math.max(0, p.likes + (liked ? -1 : 1)) } : p)),
-        ),
+        prev.map((p) => (p.id === id ? { ...p, likes: Math.max(0, p.likes + (liked ? -1 : 1)) } : p)),
       )
+      if (liked) {
+        supabase
+          .from("likes")
+          .delete()
+          .eq("user_id", current.id)
+          .eq("post_id", id)
+          .then(({ error }) => {
+            if (error) console.log("[v0] unlike error:", error.message)
+          })
+      } else {
+        supabase
+          .from("likes")
+          .insert({ user_id: current.id, post_id: id })
+          .then(({ error }) => {
+            if (error) console.log("[v0] like error:", error.message)
+          })
+      }
     },
-    [user, likedIds, persistPosts],
-  )
-
-  const makeComment = useCallback(
-    (text: string): Comment => ({
-      id: Math.random().toString(36).slice(2, 10),
-      authorId: user?.email,
-      author: user?.nickname ?? "익명",
-      text,
-      createdAt: Date.now(),
-      replies: [],
-    }),
-    [user],
+    [supabase, likedIds],
   )
 
   const addComment = useCallback(
     (id: string, text: string) => {
-      const comment = makeComment(text)
-      setPosts((prev) =>
-        persistPosts(prev.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p))),
-      )
+      const current = userRef.current
+      const commentId = crypto.randomUUID()
+      const comment: Comment = {
+        id: commentId,
+        authorId: current?.id,
+        author: current?.nickname ?? "익명",
+        text,
+        createdAt: Date.now(),
+        replies: [],
+      }
+      setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p)))
+      supabase
+        .from("comments")
+        .insert({
+          id: commentId,
+          post_id: id,
+          parent_id: null,
+          author_id: current?.id ?? null,
+          author: comment.author,
+          text,
+        })
+        .then(({ error }) => {
+          if (error) console.log("[v0] addComment error:", error.message)
+        })
     },
-    [makeComment, persistPosts],
+    [supabase],
   )
 
   const addReply = useCallback(
     (postId: string, commentId: string, text: string) => {
-      const reply = makeComment(text)
+      const current = userRef.current
+      const replyId = crypto.randomUUID()
+      const reply: Comment = {
+        id: replyId,
+        authorId: current?.id,
+        author: current?.nickname ?? "익명",
+        text,
+        createdAt: Date.now(),
+        replies: [],
+      }
       setPosts((prev) =>
-        persistPosts(
-          prev.map((p) =>
-            p.id === postId
-              ? {
-                  ...p,
-                  comments: p.comments.map((c) =>
-                    c.id === commentId ? { ...c, replies: [...(c.replies ?? []), reply] } : c,
-                  ),
-                }
-              : p,
-          ),
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                comments: p.comments.map((c) =>
+                  c.id === commentId ? { ...c, replies: [...(c.replies ?? []), reply] } : c,
+                ),
+              }
+            : p,
         ),
       )
+      supabase
+        .from("comments")
+        .insert({
+          id: replyId,
+          post_id: postId,
+          parent_id: commentId,
+          author_id: current?.id ?? null,
+          author: reply.author,
+          text,
+        })
+        .then(({ error }) => {
+          if (error) console.log("[v0] addReply error:", error.message)
+        })
     },
-    [makeComment, persistPosts],
+    [supabase],
   )
 
   const editComment = useCallback(
     (postId: string, commentId: string, text: string) => {
       const apply = (c: Comment): Comment =>
-        c.id === commentId
-          ? { ...c, text }
-          : { ...c, replies: c.replies ? c.replies.map(apply) : c.replies }
+        c.id === commentId ? { ...c, text } : { ...c, replies: c.replies ? c.replies.map(apply) : c.replies }
       setPosts((prev) =>
-        persistPosts(prev.map((p) => (p.id === postId ? { ...p, comments: p.comments.map(apply) } : p))),
+        prev.map((p) => (p.id === postId ? { ...p, comments: p.comments.map(apply) } : p)),
       )
+      supabase
+        .from("comments")
+        .update({ text })
+        .eq("id", commentId)
+        .then(({ error }) => {
+          if (error) console.log("[v0] editComment error:", error.message)
+        })
     },
-    [persistPosts],
+    [supabase],
   )
 
   const deleteComment = useCallback(
     (postId: string, commentId: string) => {
       setPosts((prev) =>
-        persistPosts(
-          prev.map((p) =>
-            p.id === postId
-              ? {
-                  ...p,
-                  comments: p.comments
-                    .filter((c) => c.id !== commentId)
-                    .map((c) => ({
-                      ...c,
-                      replies: c.replies ? c.replies.filter((r) => r.id !== commentId) : c.replies,
-                    })),
-                }
-              : p,
-          ),
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                comments: p.comments
+                  .filter((c) => c.id !== commentId)
+                  .map((c) => ({
+                    ...c,
+                    replies: c.replies ? c.replies.filter((r) => r.id !== commentId) : c.replies,
+                  })),
+              }
+            : p,
         ),
       )
+      // 대댓글까지 cascade 삭제됨 (parent_id on delete cascade)
+      supabase
+        .from("comments")
+        .delete()
+        .eq("id", commentId)
+        .then(({ error }) => {
+          if (error) console.log("[v0] deleteComment error:", error.message)
+        })
     },
-    [persistPosts],
+    [supabase],
   )
 
   const pushRecent = useCallback((id: string) => {
     setRecentIds((prev) => {
       const next = [id, ...prev.filter((x) => x !== id)].slice(0, 8)
-      localStorage.setItem(RECENT_KEY, JSON.stringify(next))
+      try {
+        localStorage.setItem(RECENT_KEY, JSON.stringify(next))
+      } catch {
+        // ignore
+      }
       return next
     })
   }, [])
@@ -524,7 +715,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const removeRecent = useCallback((id: string) => {
     setRecentIds((prev) => {
       const next = prev.filter((x) => x !== id)
-      localStorage.setItem(RECENT_KEY, JSON.stringify(next))
+      try {
+        localStorage.setItem(RECENT_KEY, JSON.stringify(next))
+      } catch {
+        // ignore
+      }
       return next
     })
   }, [])
