@@ -18,7 +18,7 @@ export default function ProfilePage() {
   }, [ready, user, router])
 
   const myPosts = useMemo(
-    () => (user ? posts.filter((p) => p.sellerId === user.email) : []),
+    () => (user ? posts.filter((p) => p.sellerId === user.id) : []),
     [posts, user],
   )
   const likedPosts = useMemo(
@@ -97,7 +97,7 @@ export default function ProfilePage() {
               아직 올린 상품이 없습니다.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-5">
               {myPosts.map((p) => (
                 <ProductCard key={p.id} post={p} />
               ))}
@@ -116,7 +116,7 @@ export default function ProfilePage() {
               아직 찜한 상품이 없습니다.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-5">
               {likedPosts.map((p) => (
                 <ProductCard key={p.id} post={p} />
               ))}

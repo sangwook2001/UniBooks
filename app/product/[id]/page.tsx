@@ -18,6 +18,8 @@ import {
   Check,
   Pencil,
   Trash2,
+  Clock,
+  CheckCircle2,
 } from "lucide-react"
 import { useStore, type Comment as CommentType } from "@/lib/store"
 import { formatPrice, formatDate, postTag } from "@/lib/format"
@@ -186,10 +188,9 @@ function CommentNode({
 export default function ProductPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
-  const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user, deletePost, isAdmin, addReport } =
+  const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user, deletePost, isAdmin, addReport, setStatus } =
     useStore()
   const post = getPost(params.id)
-  const [chatOpen, setChatOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
@@ -290,13 +291,23 @@ export default function ProductPage() {
   }
 
   const liked = post ? likedIds.includes(post.id) : false
-  const isOwner = !!post && !!user && post.sellerId === user.email
+  const isOwner = !!post && !!user && post.sellerId === user.id
   // 관리자는 모든 상품을 삭제할 수 있습니다.
   const canDelete = isOwner || isAdmin
 
   function handleEdit() {
     if (!post) return
     router.push(`/add?edit=${post.id}`)
+  }
+
+  function handleContact() {
+    if (!post) return
+    if (!post.openChatUrl) {
+      window.alert("등록된 오픈 채팅 링크가 없습니다.")
+      return
+    }
+    // 연락하기를 누르면 오픈 채팅 페이지로 바로 이동
+    window.open(post.openChatUrl, "_blank", "noopener,noreferrer")
   }
 
   function handleDelete() {
@@ -334,6 +345,18 @@ export default function ProductPage() {
                 ) : (
                   <div className="flex size-full items-center justify-center text-muted-foreground">
                     <BookOpen className="size-12" />
+                  </div>
+                )}
+                {post.status !== "판매중" && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-foreground/45">
+                    <span
+                      className={cn(
+                        "rounded-lg px-4 py-2 text-base font-bold text-background",
+                        post.status === "예약중" ? "bg-primary" : "bg-foreground/80",
+                      )}
+                    >
+                      {post.status}
+                    </span>
                   </div>
                 )}
               </div>
@@ -441,14 +464,47 @@ export default function ProductPage() {
                 >
                   <Heart className={cn("size-5", liked && "fill-primary")} />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setChatOpen(true)}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
-                >
-                  <MessageCircle className="size-5" />
-                  연락하기
-                </button>
+                {isOwner ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setStatus(post.id, post.status === "예약중" ? "판매중" : "예약중")}
+                      aria-pressed={post.status === "예약중"}
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold",
+                        post.status === "예약중"
+                          ? "bg-primary text-primary-foreground hover:opacity-90"
+                          : "border border-primary text-primary hover:bg-primary/5",
+                      )}
+                    >
+                      <Clock className="size-5" />
+                      {post.status === "예약중" ? "예약중" : "예약"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatus(post.id, post.status === "판매완료" ? "판매중" : "판매완료")}
+                      aria-pressed={post.status === "판매완료"}
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold",
+                        post.status === "판매완료"
+                          ? "bg-foreground text-background hover:opacity-90"
+                          : "border border-border text-foreground hover:bg-muted",
+                      )}
+                    >
+                      <CheckCircle2 className="size-5" />
+                      판매 완료
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleContact}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+                  >
+                    <MessageCircle className="size-5" />
+                    연락하기
+                  </button>
+                )}
               </div>
 
               {/* 판매자 */}
@@ -458,7 +514,7 @@ export default function ProductPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">{post.sellerNickname}</p>
-                  <p className="truncate text-xs text-muted-foreground">{post.sellerId}</p>
+                  <p className="truncate text-xs text-muted-foreground">판매자</p>
                 </div>
                 <span className="ml-auto shrink-0 text-xs text-muted-foreground">{post.school}</span>
               </div>
@@ -500,53 +556,13 @@ export default function ProductPage() {
                     comment={c}
                     postId={post.id}
                     sellerId={post.sellerId}
-                    currentUserId={user?.email}
+                    currentUserId={user?.id}
                   />
                 ))
               )}
             </ul>
           </section>
         </main>
-      )}
-
-      {/* 오픈 채팅 팝업 */}
-      {chatOpen && post && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="닫기"
-            onClick={() => setChatOpen(false)}
-            className="absolute inset-0 bg-foreground/40"
-          />
-          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">판매자와 연락하기</h2>
-              <button
-                type="button"
-                onClick={() => setChatOpen(false)}
-                aria-label="닫기"
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              아래 오픈 채팅 링크로 판매자에게 바로 연락할 수 있습니다.
-            </p>
-            <div className="mt-3 rounded-lg border border-border bg-muted px-3 py-2.5">
-              <p className="break-all text-xs text-foreground">{post.openChatUrl}</p>
-            </div>
-            <a
-              href={post.openChatUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
-            >
-              <MessageCircle className="size-5" />
-              오픈 채팅 열기
-            </a>
-          </div>
-        </div>
       )}
 
       {/* 공유하기 팝업 */}

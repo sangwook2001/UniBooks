@@ -31,6 +31,18 @@ export function ProductCard({ post }: { post: Post }) {
         <span className="absolute left-1.5 top-1.5 rounded-md bg-foreground/70 px-1.5 py-0.5 text-[10px] font-medium text-background">
           {postTag(post)}
         </span>
+        {post.status !== "판매중" && (
+          <div className="absolute inset-0 flex items-center justify-center bg-foreground/45">
+            <span
+              className={cn(
+                "rounded-md px-2 py-1 text-xs font-bold text-background",
+                post.status === "예약중" ? "bg-primary" : "bg-foreground/80",
+              )}
+            >
+              {post.status}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col justify-between sm:p-3">
