@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
+import { createClient } from "@/lib/supabase/client"
 import {
   ArrowLeft,
   BookOpen,
@@ -18,6 +19,10 @@ import {
   Check,
   Pencil,
   Trash2,
+  Clock,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { useStore, type Comment as CommentType } from "@/lib/store"
 import { formatPrice, formatDate, postTag } from "@/lib/format"
@@ -186,17 +191,38 @@ function CommentNode({
 export default function ProductPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
-  const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user, deletePost, isAdmin, addReport } =
+  const { ready, getPost, pushRecent, incrementViews, toggleLike, likedIds, addComment, user, deletePost, isAdmin, addReport, setStatus } =
     useStore()
   const post = getPost(params.id)
-  const [chatOpen, setChatOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [reportReason, setReportReason] = useState("")
   const [reportDetail, setReportDetail] = useState("")
   const [comment, setComment] = useState("")
+  const [activeImage, setActiveImage] = useState(0)
+  const [fetchedImages, setFetchedImages] = useState<string[] | null>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const viewedRef = useRef(false)
+
+  // 상세 페이지에서만 전체 사진(images 배열)을 불러온다(목록은 대표 이미지만 로드).
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+    supabase
+      .from("posts")
+      .select("images")
+      .eq("id", params.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active && data?.images && data.images.length > 0) {
+          setFetchedImages(data.images as string[])
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [params.id])
 
   useEffect(() => {
     if (post && !viewedRef.current) {
@@ -228,7 +254,7 @@ export default function ProductPage() {
     try {
       await navigator.clipboard.writeText(shareUrl)
     } catch {
-      // 클립보드 접근이 ��힌 환경(iframe 등) 대비 폴백
+      // 클립보드 접근이 ��힌 환�����(iframe 등) 대비 폴백
       const ta = document.createElement("textarea")
       ta.value = shareUrl
       document.body.appendChild(ta)
@@ -290,13 +316,24 @@ export default function ProductPage() {
   }
 
   const liked = post ? likedIds.includes(post.id) : false
-  const isOwner = !!post && !!user && post.sellerId === user.email
+  const isOwner =
+    !!post && !!user && String(post.sellerId ?? "").trim() === String(user.id ?? "").trim()
   // 관리자는 모든 상품을 삭제할 수 있습니다.
   const canDelete = isOwner || isAdmin
 
   function handleEdit() {
     if (!post) return
     router.push(`/add?edit=${post.id}`)
+  }
+
+  function handleContact() {
+    if (!post) return
+    if (!post.openChatUrl) {
+      window.alert("등록된 오픈 채팅 링크가 없습니다.")
+      return
+    }
+    // 연락하기를 누르면 오픈 채팅 페이지로 바로 이동
+    window.open(post.openChatUrl, "_blank", "noopener,noreferrer")
   }
 
   function handleDelete() {
@@ -311,6 +348,31 @@ export default function ProductPage() {
   const totalComments = post
     ? post.comments.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0)
     : 0
+
+  // 우선순위: 상세에서 별도로 불러온 전체 사진 > 스토어의 images > 대표 이미지
+  const gallery = useMemo(() => {
+    if (fetchedImages && fetchedImages.length > 0) return fetchedImages
+    if (!post) return []
+    if (post.images && post.images.length > 0) return post.images
+    return post.image ? [post.image] : []
+  }, [fetchedImages, post])
+
+  // 스크롤 스냅 컨테이너를 부드럽게 이동시켜 한 장씩 넘긴다
+  const scrollToIndex = (index: number) => {
+    const el = scrollRef.current
+    if (!el) return
+    const clamped = Math.max(0, Math.min(index, gallery.length - 1))
+    el.scrollTo({ left: el.clientWidth * clamped, behavior: "smooth" })
+  }
+  const goPrev = () => scrollToIndex(activeImage - 1)
+  const goNext = () => scrollToIndex(activeImage + 1)
+
+  // 스크롤(스와이프/드래그)이 멈춘 위치로 현재 사진 인덱스를 갱신
+  function onGalleryScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    const idx = Math.round(el.scrollLeft / el.clientWidth)
+    if (idx !== activeImage) setActiveImage(idx)
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -327,13 +389,80 @@ export default function ProductPage() {
         <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
           <div className="flex flex-col gap-8 md:flex-row md:gap-10">
             {/* 왼쪽: 큰 사진 */}
-            <div className="w-full md:w-1/2">
+            <div className="flex w-full flex-col gap-3 md:w-1/2">
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted">
-                {post.image ? (
-                  <Image src={post.image || "/placeholder.svg"} alt={post.title} fill className="object-cover" />
+                {gallery.length > 0 ? (
+                  <div
+                    ref={scrollRef}
+                    onScroll={onGalleryScroll}
+                    className="flex size-full snap-x snap-mandatory overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  >
+                    {gallery.map((img, i) => (
+                      <div key={i} className="relative size-full shrink-0 basis-full snap-center snap-always">
+                        <Image
+                          src={img || "/placeholder.svg"}
+                          alt={`${post.title} 사진 ${i + 1}`}
+                          fill
+                          className="object-cover"
+                          draggable={false}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="flex size-full items-center justify-center text-muted-foreground">
                     <BookOpen className="size-12" />
+                  </div>
+                )}
+
+                {/* 좌우 화살표 (사진 2장 이상일 때) */}
+                {gallery.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={goPrev}
+                      aria-label="이전 사진"
+                      className="absolute left-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm hover:bg-background"
+                    >
+                      <ChevronLeft className="size-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goNext}
+                      aria-label="다음 사진"
+                      className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm hover:bg-background"
+                    >
+                      <ChevronRight className="size-5" />
+                    </button>
+                    {/* 사진 번호 */}
+                    <span className="absolute bottom-2 right-2 rounded-full bg-foreground/70 px-2.5 py-1 text-xs font-medium text-background">
+                      {activeImage + 1} / {gallery.length}
+                    </span>
+                    {/* 점 인디케이터 */}
+                    <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
+                      {gallery.map((_, i) => (
+                        <span
+                          key={i}
+                          className={cn(
+                            "size-1.5 rounded-full",
+                            i === activeImage ? "bg-background" : "bg-background/50",
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {post.status !== "판매중" && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-foreground/45">
+                    <span
+                      className={cn(
+                        "rounded-lg px-4 py-2 text-base font-bold text-background",
+                        post.status === "예약중" ? "bg-primary" : "bg-foreground/80",
+                      )}
+                    >
+                      {post.status}
+                    </span>
                   </div>
                 )}
               </div>
@@ -341,7 +470,7 @@ export default function ProductPage() {
 
             {/* 오른쪽: 정보 */}
             <div className="flex w-full flex-col md:w-1/2">
-              {/* 상단: 학과 · 학년 */}
+              {/* ��단: 학과 · 학년 */}
               <span className="inline-block w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
                 {postTag(post)}
                 {post.grade ? ` · ${post.grade}` : ""}
@@ -441,14 +570,59 @@ export default function ProductPage() {
                 >
                   <Heart className={cn("size-5", liked && "fill-primary")} />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setChatOpen(true)}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
-                >
-                  <MessageCircle className="size-5" />
-                  연락하기
-                </button>
+                {isOwner ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setStatus(post.id, post.status === "예약중" ? "판매중" : "예약중")}
+                      aria-pressed={post.status === "예약중"}
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold",
+                        post.status === "예약중"
+                          ? "bg-primary text-primary-foreground hover:opacity-90"
+                          : "border border-primary text-primary hover:bg-primary/5",
+                      )}
+                    >
+                      <Clock className="size-5" />
+                      {post.status === "예약중" ? "예약중" : "예약"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatus(post.id, post.status === "판매완료" ? "판매중" : "판매완료")}
+                      aria-pressed={post.status === "판매완료"}
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold",
+                        post.status === "판매완료"
+                          ? "bg-foreground text-background hover:opacity-90"
+                          : "border border-border text-foreground hover:bg-muted",
+                      )}
+                    >
+                      <CheckCircle2 className="size-5" />
+                      판매 완료
+                    </button>
+                  </>
+                ) : post.status !== "판매중" ? (
+                  <div
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold",
+                      post.status === "예약중"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {post.status === "예약중" ? <Clock className="size-5" /> : <CheckCircle2 className="size-5" />}
+                    {post.status}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleContact}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+                  >
+                    <MessageCircle className="size-5" />
+                    연락하기
+                  </button>
+                )}
               </div>
 
               {/* 판매자 */}
@@ -458,7 +632,7 @@ export default function ProductPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">{post.sellerNickname}</p>
-                  <p className="truncate text-xs text-muted-foreground">{post.sellerId}</p>
+                  <p className="truncate text-xs text-muted-foreground">판매자</p>
                 </div>
                 <span className="ml-auto shrink-0 text-xs text-muted-foreground">{post.school}</span>
               </div>
@@ -500,53 +674,13 @@ export default function ProductPage() {
                     comment={c}
                     postId={post.id}
                     sellerId={post.sellerId}
-                    currentUserId={user?.email}
+                    currentUserId={user?.id}
                   />
                 ))
               )}
             </ul>
           </section>
         </main>
-      )}
-
-      {/* 오픈 채팅 팝업 */}
-      {chatOpen && post && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="닫기"
-            onClick={() => setChatOpen(false)}
-            className="absolute inset-0 bg-foreground/40"
-          />
-          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">판매자와 연락하기</h2>
-              <button
-                type="button"
-                onClick={() => setChatOpen(false)}
-                aria-label="닫기"
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              아래 오픈 채팅 링크로 판매자에게 바로 연락할 수 있습니다.
-            </p>
-            <div className="mt-3 rounded-lg border border-border bg-muted px-3 py-2.5">
-              <p className="break-all text-xs text-foreground">{post.openChatUrl}</p>
-            </div>
-            <a
-              href={post.openChatUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
-            >
-              <MessageCircle className="size-5" />
-              오픈 채팅 열기
-            </a>
-          </div>
-        </div>
       )}
 
       {/* 공유하기 팝업 */}

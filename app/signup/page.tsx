@@ -8,6 +8,7 @@ import { Eye, EyeOff, Check, GraduationCap, ChevronDown, ArrowLeft } from "lucid
 import { useStore } from "@/lib/store"
 import { cn } from "@/lib/utils"
 import { SchoolSelectModal } from "@/components/school-select-modal"
+import { getSchoolEmailDomains, isSchoolEmail } from "@/lib/data"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -33,10 +34,6 @@ export default function SignupPage() {
   const [signupSchool, setSignupSchool] = useState<string | null>(null)
   const [schoolModalOpen, setSchoolModalOpen] = useState(false)
   const [email, setEmail] = useState("")
-  const [codeSent, setCodeSent] = useState(false)
-  const [sentCode, setSentCode] = useState("")
-  const [code, setCode] = useState("")
-  const [verified, setVerified] = useState(false)
   const [nickname, setNickname] = useState("")
   const [pw, setPw] = useState("")
   const [pw2, setPw2] = useState("")
@@ -46,6 +43,9 @@ export default function SignupPage() {
   const checks = passwordChecks(pw)
   const strength = strengthOf(pw)
   const emailValid = EMAIL_RE.test(email)
+  // 선택한 학교의 이메일 도메인과 일치하는지 검사
+  const schoolEmailValid = emailValid && !!signupSchool && isSchoolEmail(email, signupSchool)
+  const allowedDomains = getSchoolEmailDomains(signupSchool)
   const pwAllValid = checks.special && checks.number && checks.upper && pw.length >= 6
   const pwMismatch = pw2.length > 0 && pw !== pw2
 
@@ -55,39 +55,9 @@ export default function SignupPage() {
   const nickAvailable = nickTrim.length >= 2 && !nickTaken
 
   const signupValid = useMemo(
-    () => !!signupSchool && verified && nickAvailable && pwAllValid && pw === pw2 && pw2.length > 0,
-    [signupSchool, verified, nickAvailable, pwAllValid, pw, pw2],
+    () => !!signupSchool && schoolEmailValid && nickAvailable && pwAllValid && pw === pw2 && pw2.length > 0,
+    [signupSchool, schoolEmailValid, nickAvailable, pwAllValid, pw, pw2],
   )
-
-  function resetVerification() {
-    setCodeSent(false)
-    setSentCode("")
-    setCode("")
-    setVerified(false)
-  }
-
-  function sendCode() {
-    if (!signupSchool) {
-      window.alert("먼저 학교를 선택해주세요.")
-      return
-    }
-    if (!emailValid) {
-      window.alert("학교 이메일을 올바르게 입력해주세요.")
-      return
-    }
-    const c = String(Math.floor(100000 + Math.random() * 900000))
-    setSentCode(c)
-    setCodeSent(true)
-    setVerified(false)
-  }
-
-  function verifyCode() {
-    if (code.trim() === sentCode) {
-      setVerified(true)
-    } else {
-      window.alert("인증번호가 일치하지 않습니다.")
-    }
-  }
 
   async function handleSignup() {
     if (!signupValid || !signupSchool || submitting) return
@@ -99,7 +69,9 @@ export default function SignupPage() {
       return
     }
     if (res.needsEmailConfirm) {
-      window.alert("회원가입이 완료되었습니다. 학교 이메일로 발송된 확인 메일의 링크를 눌러 인증을 마쳐주세요.")
+      window.alert(
+        `학교 이메일(${email})로 인증 메일을 발송했습니다.\n메일함에서 확인 링크를 눌러 인증을 완료해주세요.`,
+      )
       router.push("/login")
       return
     }
@@ -165,67 +137,41 @@ export default function SignupPage() {
               </label>
               <input
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value)
-                  resetVerification()
-                }}
-                placeholder="id@university.ac.kr"
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={
+                  allowedDomains.length > 0 ? `id@${allowedDomains[0]}` : "id@university.ac.kr"
+                }
                 className={cn(
                   "w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none",
-                  email.length > 0 && !emailValid
+                  email.length > 0 && (!emailValid || (!!signupSchool && !schoolEmailValid))
                     ? "border-destructive"
-                    : "border-border focus:border-primary",
+                    : schoolEmailValid
+                      ? "border-primary"
+                      : "border-border focus:border-primary",
                 )}
               />
-              {email.length > 0 && !emailValid && (
+              {!signupSchool ? (
+                <p className="mt-1 text-xs text-muted-foreground">먼저 위에서 대학교를 선택해주세요.</p>
+              ) : email.length > 0 && !emailValid ? (
                 <p className="mt-1 text-xs text-destructive">이메일 형식으로 입력해주세요.</p>
+              ) : email.length > 0 && !schoolEmailValid ? (
+                <p className="mt-1 text-xs text-destructive">
+                  {allowedDomains.length > 0
+                    ? `${signupSchool} 이메일(@${allowedDomains.join(", @")})만 사용할 수 있습니다.`
+                    : "학교 이메일(.ac.kr / .edu)만 사용할 수 있습니다."}
+                </p>
+              ) : schoolEmailValid ? (
+                <p className="mt-1 flex items-center gap-1 text-xs font-medium text-primary">
+                  <Check className="size-3.5" /> 학교 이메일 형식이 확인되었습니다.
+                </p>
+              ) : (
+                allowedDomains.length > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {signupSchool} 이메일: @{allowedDomains.join(", @")}
+                  </p>
+                )
               )}
             </div>
-
-            {/* 인증하기 (메일 아래) */}
-            {!verified && !codeSent && (
-              <button
-                type="button"
-                onClick={sendCode}
-                className="w-full rounded-lg border border-primary py-2.5 text-sm font-medium text-primary hover:bg-primary/5"
-              >
-                인증하기
-              </button>
-            )}
-
-            {/* 인증번호 입력 + 인증하기 (아래로 밀림) */}
-            {codeSent && !verified && (
-              <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/50 p-3">
-                <p className="text-xs text-muted-foreground">
-                  데모 인증번호: <span className="font-semibold text-foreground">{sentCode}</span>{" "}
-                  (실제 서비스에서는 학교 메일로 발송됩니다)
-                </p>
-                <input
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") verifyCode()
-                  }}
-                  placeholder="인증번호 6자리 입력"
-                  inputMode="numeric"
-                  maxLength={6}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-                />
-                <button
-                  type="button"
-                  onClick={verifyCode}
-                  className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
-                >
-                  인증하기
-                </button>
-              </div>
-            )}
-
-            {verified && (
-              <p className="flex items-center gap-1 text-xs font-medium text-primary">
-                <Check className="size-3.5" /> 인증되었습니다.
-              </p>
-            )}
 
             {/* 닉네임 */}
             <div>
@@ -362,7 +308,6 @@ export default function SignupPage() {
         onClose={() => setSchoolModalOpen(false)}
         onConfirm={(s) => {
           setSignupSchool(s)
-          resetVerification()
           setSchoolModalOpen(false)
         }}
       />
