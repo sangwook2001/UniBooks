@@ -1,9 +1,10 @@
 "use client"
 
-import React, { useEffect, useRef, useState, useMemo } from "react" // 🟢 useMemo 정상 장착
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
+import { createClient } from "@/lib/supabase/client"
 import {
   ArrowLeft,
   BookOpen,
@@ -199,13 +200,29 @@ export default function ProductPage() {
   const [reportReason, setReportReason] = useState("")
   const [reportDetail, setReportDetail] = useState("")
   const [comment, setComment] = useState("")
-  
   const [activeImage, setActiveImage] = useState(0)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [fetchedImages, setFetchedImages] = useState<string[] | null>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const viewedRef = useRef(false)
 
-  const touchStartX = useRef<number>(0)
-  const touchEndX = useRef<number>(0)
+  // 상세 페이지에서만 전체 사진(images 배열)을 불러온다(목록은 대표 이미지만 로드).
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+    supabase
+      .from("posts")
+      .select("images")
+      .eq("id", params.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active && data?.images && data.images.length > 0) {
+          setFetchedImages(data.images as string[])
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [params.id])
 
   useEffect(() => {
     if (post && !viewedRef.current) {
@@ -215,20 +232,15 @@ export default function ProductPage() {
     }
   }, [post, pushRecent, incrementViews])
 
-  // 🟢 안전망 갤러리 맵핑 (오류 났던 부분 완벽 방어형으로 리팩토링)
+  // 우선순위: 상세에서 별도로 불러온 전체 사진 > 스토어의 images > 대표 이미지
+  // (모든 훅은 조기 return 위에 두어야 한다. 아래에 두면 게시글 로딩 타이밍에 따라
+  //  훅 개수가 달라져 "Rendered fewer hooks than expected" 크래시가 발생한다.)
   const gallery = useMemo(() => {
+    if (fetchedImages && fetchedImages.length > 0) return fetchedImages
     if (!post) return []
-    if (Array.isArray(post.images) && post.images.length > 0) {
-      return post.images.filter(Boolean)
-    }
-    if (Array.isArray(post.image)) {
-      return post.image.filter(Boolean)
-    }
-    if (post.image) {
-      return [post.image]
-    }
-    return []
-  }, [post])
+    if (post.images && post.images.length > 0) return post.images
+    return post.image ? [post.image] : []
+  }, [fetchedImages, post])
 
   if (ready && !post) {
     return (
@@ -252,6 +264,7 @@ export default function ProductPage() {
     try {
       await navigator.clipboard.writeText(shareUrl)
     } catch {
+      // 클립보드 접근이 막힌 환경(iframe 등) 대비 폴백
       const ta = document.createElement("textarea")
       ta.value = shareUrl
       document.body.appendChild(ta)
@@ -315,6 +328,7 @@ export default function ProductPage() {
   const liked = post ? likedIds.includes(post.id) : false
   const isOwner =
     !!post && !!user && String(post.sellerId ?? "").trim() === String(user.id ?? "").trim()
+  // 관리자는 모든 상품을 삭제할 수 있습니다.
   const canDelete = isOwner || isAdmin
 
   function handleEdit() {
@@ -322,6 +336,8 @@ export default function ProductPage() {
     router.push(`/add?edit=${post.id}`)
   }
 
+  // 뒤로가기: 히스토리를 새로 쌓지 않고 이전 페이지로 돌아간다.
+  // 직접 진입 등으로 히스토리가 없으면 홈으로 대체 이동한다.
   function handleBack() {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back()
@@ -330,13 +346,13 @@ export default function ProductPage() {
     }
   }
 
-
   function handleContact() {
     if (!post) return
     if (!post.openChatUrl) {
       window.alert("등록된 오픈 채팅 링크가 없습니다.")
       return
     }
+    // 연락하기를 누르면 오픈 채팅 페이지로 바로 이동
     window.open(post.openChatUrl, "_blank", "noopener,noreferrer")
   }
 
@@ -353,53 +369,21 @@ export default function ProductPage() {
     ? post.comments.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0)
     : 0
 
-  const scrollToImage = (index: number) => {
-    if (!scrollContainerRef.current) return
-    const containerWidth = scrollContainerRef.current.clientWidth
-    scrollContainerRef.current.scrollTo({
-      left: index * containerWidth,
-      behavior: "smooth",
-    })
-    setActiveImage(index)
+  // 스크롤 스냅 컨테이너를 부드럽게 이동시켜 한 장씩 넘긴다
+  const scrollToIndex = (index: number) => {
+    const el = scrollRef.current
+    if (!el) return
+    const clamped = Math.max(0, Math.min(index, gallery.length - 1))
+    el.scrollTo({ left: el.clientWidth * clamped, behavior: "smooth" })
   }
+  const goPrev = () => scrollToIndex(activeImage - 1)
+  const goNext = () => scrollToIndex(activeImage + 1)
 
-  const goPrev = () => {
-    const nextIndex = activeImage === 0 ? gallery.length - 1 : activeImage - 1
-    scrollToImage(nextIndex)
-  }
-
-  const goNext = () => {
-    const nextIndex = activeImage === gallery.length - 1 ? 0 : activeImage + 1
-    scrollToImage(nextIndex)
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX
-  }
-
-  const handleTouchEnd = () => {
-    const diffX = touchStartX.current - touchEndX.current
-    const sensitivity = 40
-
-    if (Math.abs(diffX) > sensitivity) {
-      if (diffX > 0) {
-        if (activeImage < gallery.length - 1) {
-          scrollToImage(activeImage + 1)
-        } else {
-          scrollToImage(activeImage)
-        }
-      } else {
-        if (activeImage > 0) {
-          scrollToImage(activeImage - 1)
-        } else {
-          scrollToImage(activeImage)
-        }
-      }
-    }
+  // 스크롤(스와이프/드래그)이 멈춘 위치로 현재 사진 인덱스를 갱신
+  function onGalleryScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    const idx = Math.round(el.scrollLeft / el.clientWidth)
+    if (idx !== activeImage) setActiveImage(idx)
   }
 
   return (
@@ -421,26 +405,23 @@ export default function ProductPage() {
       {post && (
         <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
           <div className="flex flex-col gap-8 md:flex-row md:gap-10">
-            {/* 왼쪽: 사진 메인 캔버스 */}
+            {/* 왼쪽: 큰 사진 */}
             <div className="flex w-full flex-col gap-3 md:w-1/2">
-              <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted group">
-                
+              <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted">
                 {gallery.length > 0 ? (
                   <div
-                    ref={scrollContainerRef}
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    className="flex h-full w-full overflow-x-hidden scroll-smooth"
+                    ref={scrollRef}
+                    onScroll={onGalleryScroll}
+                    className="flex size-full snap-x snap-mandatory overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   >
-                    {gallery.map((imgUrl, imageIdx) => (
-                      <div key={imageIdx} className="relative h-full w-full shrink-0">
+                    {gallery.map((img, i) => (
+                      <div key={i} className="relative size-full shrink-0 basis-full snap-center snap-always">
                         <Image
-                          src={imgUrl || "/placeholder.svg"}
-                          alt={`${post.title} 사진 ${imageIdx + 1}`}
+                          src={img || "/placeholder.svg"}
+                          alt={`${post.title} 사진 ${i + 1}`}
                           fill
-                          priority={imageIdx === 0}
-                          className="object-cover select-none pointer-events-none"
+                          className="object-cover"
+                          draggable={false}
                         />
                       </div>
                     ))}
@@ -451,13 +432,14 @@ export default function ProductPage() {
                   </div>
                 )}
 
+                {/* 좌우 화살표 (사진 2장 이상일 때) */}
                 {gallery.length > 1 && (
                   <>
                     <button
                       type="button"
                       onClick={goPrev}
                       aria-label="이전 사진"
-                      className="absolute left-3 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm backdrop-blur-sm transition opacity-0 group-hover:opacity-100 hover:bg-background"
+                      className="absolute left-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm hover:bg-background"
                     >
                       <ChevronLeft className="size-5" />
                     </button>
@@ -465,25 +447,22 @@ export default function ProductPage() {
                       type="button"
                       onClick={goNext}
                       aria-label="다음 사진"
-                      className="absolute right-3 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm backdrop-blur-sm transition opacity-0 group-hover:opacity-100 hover:bg-background"
+                      className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm hover:bg-background"
                     >
                       <ChevronRight className="size-5" />
                     </button>
-                    
-                    <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-[2px]">
+                    {/* 사진 번호 */}
+                    <span className="absolute bottom-2 right-2 rounded-full bg-foreground/70 px-2.5 py-1 text-xs font-medium text-background">
                       {activeImage + 1} / {gallery.length}
                     </span>
-                    
-                    <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-                      {gallery.map((_, dotIdx) => (
-                        <button
-                          key={dotIdx}
-                          type="button"
-                          onClick={() => scrollToImage(dotIdx)}
-                          aria-label={`${dotIdx + 1}번째 사진으로 이동`}
+                    {/* 점 인디케이터 */}
+                    <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
+                      {gallery.map((_, i) => (
+                        <span
+                          key={i}
                           className={cn(
-                            "size-1.5 rounded-full transition-all duration-300",
-                            dotIdx === activeImage ? "w-3 bg-background" : "bg-background/50",
+                            "size-1.5 rounded-full",
+                            i === activeImage ? "bg-background" : "bg-background/50",
                           )}
                         />
                       ))}
@@ -492,10 +471,10 @@ export default function ProductPage() {
                 )}
 
                 {post.status !== "판매중" && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-foreground/45 pointer-events-none">
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-foreground/45">
                     <span
                       className={cn(
-                        "rounded-lg px-4 py-2 text-base font-bold text-background shadow",
+                        "rounded-lg px-4 py-2 text-base font-bold text-background",
                         post.status === "예약중" ? "bg-primary" : "bg-foreground/80",
                       )}
                     >
@@ -506,13 +485,15 @@ export default function ProductPage() {
               </div>
             </div>
 
-            {/* 오른쪽: 상세 정보 텍스트 */}
+            {/* 오른쪽: 정보 */}
             <div className="flex w-full flex-col md:w-1/2">
+              {/* 상단: 학과 · 학년 */}
               <span className="inline-block w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
                 {postTag(post)}
                 {post.grade ? ` · ${post.grade}` : ""}
               </span>
 
+              {/* 제목 · 저자 (살짝 내려서) */}
               <div className="mt-4 flex items-start justify-between gap-3">
                 <h1 className="min-w-0 text-2xl font-bold leading-snug text-foreground text-balance">
                   {post.title}
@@ -554,6 +535,7 @@ export default function ProductPage() {
                 </div>
               )}
 
+              {/* 설명: 사진 가운데에 위치 (글이 길어지면 위아래로 늘어남) */}
               <div className="flex flex-1 items-center py-6">
                 {post.description ? (
                   <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
@@ -562,8 +544,10 @@ export default function ProductPage() {
                 ) : null}
               </div>
 
+              {/* 가격 (살짝 위로) */}
               <p className="text-right text-3xl font-bold text-foreground">{formatPrice(post.price)}</p>
 
+              {/* 조회수 · 찜 · 댓글 수 (공유 버튼 바로 위) */}
               <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Eye className="size-4" />
@@ -579,6 +563,7 @@ export default function ProductPage() {
                 </span>
               </div>
 
+              {/* 액션 */}
               <div className="mt-2 flex items-center gap-2">
                 <button
                   type="button"
@@ -657,6 +642,7 @@ export default function ProductPage() {
                 )}
               </div>
 
+              {/* 판매자 */}
               <div className="mt-6 flex items-center gap-3 rounded-xl border border-border p-4">
                 <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
                   <User className="size-5" />
@@ -670,6 +656,7 @@ export default function ProductPage() {
             </div>
           </div>
 
+          {/* 댓글 */}
           <section className="mt-10 border-t border-border pt-6">
             <h2 className="mb-4 text-base font-semibold text-foreground">댓글 {totalComments}</h2>
 
@@ -713,6 +700,7 @@ export default function ProductPage() {
         </main>
       )}
 
+      {/* 공유하기 팝업 */}
       {shareOpen && post && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
@@ -749,6 +737,7 @@ export default function ProductPage() {
         </div>
       )}
 
+      {/* 신고 설문 팝업 */}
       {reportOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
@@ -814,6 +803,7 @@ export default function ProductPage() {
           </div>
         </div>
       )}
+
     </div>
   )
 }
