@@ -264,7 +264,7 @@ export default function ProductPage() {
     try {
       await navigator.clipboard.writeText(shareUrl)
     } catch {
-      // 클립보드 접근이 ��힌 환�����(iframe 등) 대비 폴백
+      // 클립보드 접근이 막힌 환경(iframe 등) 대비 폴백
       const ta = document.createElement("textarea")
       ta.value = shareUrl
       document.body.appendChild(ta)
@@ -487,7 +487,7 @@ export default function ProductPage() {
 
             {/* 오른쪽: 정보 */}
             <div className="flex w-full flex-col md:w-1/2">
-              {/* ��단: 학과 · 학년 */}
+              {/* 상단: 학과 · 학년 */}
               <span className="inline-block w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
                 {postTag(post)}
                 {post.grade ? ` · ${post.grade}` : ""}
