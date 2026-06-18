@@ -202,7 +202,7 @@ export default function ProductPage() {
   const [comment, setComment] = useState("")
   const [activeImage, setActiveImage] = useState(0)
   const [fetchedImages, setFetchedImages] = useState<string[] | null>(null)
-  const touchStartX = useRef<number | null>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const viewedRef = useRef(false)
 
   // 상세 페이지에서만 전체 사진(images 배열)을 불러온다(목록은 대표 이미지만 로드).
@@ -357,20 +357,21 @@ export default function ProductPage() {
     return post.image ? [post.image] : []
   }, [fetchedImages, post])
 
-  const goPrev = () => setActiveImage((i) => (i === 0 ? gallery.length - 1 : i - 1))
-  const goNext = () => setActiveImage((i) => (i === gallery.length - 1 ? 0 : i + 1))
-
-  function onTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX
+  // 스크롤 스냅 컨테이너를 부드럽게 이동시켜 한 장씩 넘긴다
+  const scrollToIndex = (index: number) => {
+    const el = scrollRef.current
+    if (!el) return
+    const clamped = Math.max(0, Math.min(index, gallery.length - 1))
+    el.scrollTo({ left: el.clientWidth * clamped, behavior: "smooth" })
   }
-  function onTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return
-    const diff = e.changedTouches[0].clientX - touchStartX.current
-    if (Math.abs(diff) > 40) {
-      if (diff < 0) goNext()
-      else goPrev()
-    }
-    touchStartX.current = null
+  const goPrev = () => scrollToIndex(activeImage - 1)
+  const goNext = () => scrollToIndex(activeImage + 1)
+
+  // 스크롤(스와이프/드래그)이 멈춘 위치로 현재 사진 인덱스를 갱신
+  function onGalleryScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    const idx = Math.round(el.scrollLeft / el.clientWidth)
+    if (idx !== activeImage) setActiveImage(idx)
   }
 
   return (
@@ -389,18 +390,25 @@ export default function ProductPage() {
           <div className="flex flex-col gap-8 md:flex-row md:gap-10">
             {/* 왼쪽: 큰 사진 */}
             <div className="flex w-full flex-col gap-3 md:w-1/2">
-              <div
-                className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted"
-                onTouchStart={onTouchStart}
-                onTouchEnd={onTouchEnd}
-              >
+              <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted">
                 {gallery.length > 0 ? (
-                  <Image
-                    src={gallery[activeImage] || "/placeholder.svg"}
-                    alt={post.title}
-                    fill
-                    className="object-cover"
-                  />
+                  <div
+                    ref={scrollRef}
+                    onScroll={onGalleryScroll}
+                    className="flex size-full snap-x snap-mandatory overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  >
+                    {gallery.map((img, i) => (
+                      <div key={i} className="relative size-full shrink-0 basis-full snap-center snap-always">
+                        <Image
+                          src={img || "/placeholder.svg"}
+                          alt={`${post.title} 사진 ${i + 1}`}
+                          fill
+                          className="object-cover"
+                          draggable={false}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="flex size-full items-center justify-center text-muted-foreground">
                     <BookOpen className="size-12" />
@@ -446,7 +454,7 @@ export default function ProductPage() {
                 )}
 
                 {post.status !== "판매중" && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-foreground/45">
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-foreground/45">
                     <span
                       className={cn(
                         "rounded-lg px-4 py-2 text-base font-bold text-background",
@@ -458,26 +466,6 @@ export default function ProductPage() {
                   </div>
                 )}
               </div>
-
-              {/* 썸네일 (사진 2장 이상일 때) */}
-              {gallery.length > 1 && (
-                <div className="flex flex-wrap gap-2">
-                  {gallery.map((img, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setActiveImage(i)}
-                      className={cn(
-                        "relative size-16 overflow-hidden rounded-lg border-2",
-                        i === activeImage ? "border-primary" : "border-border",
-                      )}
-                      aria-label={`사진 ${i + 1} 보기`}
-                    >
-                      <Image src={img || "/placeholder.svg"} alt={`사진 ${i + 1}`} fill className="object-cover" />
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* 오른쪽: 정보 */}

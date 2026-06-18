@@ -140,13 +140,13 @@ export default function ProfilePage() {
         </section>
 
         {/* 계정 관리 */}
-        <section className="border-t border-border pb-12 pt-6">
+        <section className="flex justify-center border-t border-border pb-12 pt-6">
           <button
             type="button"
             onClick={() => setShowDelete(true)}
-            className="text-sm font-medium text-muted-foreground hover:text-destructive"
+            className="text-sm font-medium text-destructive hover:underline"
           >
-            회원 탈퇴
+            탈퇴하기
           </button>
         </section>
       </main>
