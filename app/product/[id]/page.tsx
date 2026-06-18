@@ -232,6 +232,16 @@ export default function ProductPage() {
     }
   }, [post, pushRecent, incrementViews])
 
+  // 우선순위: 상세에서 별도로 불러온 전체 사진 > 스토어의 images > 대표 이미지
+  // (모든 훅은 조기 return 위에 두어야 한다. 아래에 두면 게시글 로딩 타이밍에 따라
+  //  훅 개수가 달라져 "Rendered fewer hooks than expected" 크래시가 발생한다.)
+  const gallery = useMemo(() => {
+    if (fetchedImages && fetchedImages.length > 0) return fetchedImages
+    if (!post) return []
+    if (post.images && post.images.length > 0) return post.images
+    return post.image ? [post.image] : []
+  }, [fetchedImages, post])
+
   if (ready && !post) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
@@ -358,14 +368,6 @@ export default function ProductPage() {
   const totalComments = post
     ? post.comments.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0)
     : 0
-
-  // 우선순위: 상세에서 별도로 불러온 전체 사진 > 스토어의 images > 대표 이미지
-  const gallery = useMemo(() => {
-    if (fetchedImages && fetchedImages.length > 0) return fetchedImages
-    if (!post) return []
-    if (post.images && post.images.length > 0) return post.images
-    return post.image ? [post.image] : []
-  }, [fetchedImages, post])
 
   // 스크롤 스냅 컨테이너를 부드럽게 이동시켜 한 장씩 넘긴다
   const scrollToIndex = (index: number) => {
