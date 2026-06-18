@@ -16,6 +16,7 @@ import {
   DEPARTMENTS_BY_COLLEGE,
 } from "@/lib/data"
 import { formatNumberInput, parseNumber } from "@/lib/format"
+import { compressImage } from "@/lib/image"
 import { cn } from "@/lib/utils"
 
 // 🟢 1. 최상단 메인 컴포넌트 (Vercel 빌드 패스용 Suspense 방어막)
@@ -115,18 +116,16 @@ function AddPageContent({ editId }: { editId: string | null }) {
 
   const showDeptGrade = category === "전공" || category === "교양"
 
-  function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
+    // 같은 파일을 다시 선택할 수 있도록 입력값 초기화
+    e.target.value = ""
     if (files.length === 0) return
     const remaining = MAX_IMAGES - images.length
     const toAdd = files.slice(0, remaining)
-    toAdd.forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = () => setImages((prev) => (prev.length >= MAX_IMAGES ? prev : [...prev, reader.result as string]))
-      reader.readAsDataURL(file)
-    })
-    // 같은 파일을 다시 선택할 수 있도록 입력값 초기화
-    e.target.value = ""
+    // 업로드 전 압축(수 MB -> 수백 KB)으로 저장/로딩 속도 개선
+    const compressed = await Promise.all(toAdd.map((file) => compressImage(file)))
+    setImages((prev) => [...prev, ...compressed].slice(0, MAX_IMAGES))
   }
 
   function removeImage(index: number) {

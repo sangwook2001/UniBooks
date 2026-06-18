@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState, useMemo } from "react" // 🟢 useMemo 정상 장착
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -204,7 +204,6 @@ export default function ProductPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const viewedRef = useRef(false)
 
-  // 🟢 모바일 전용 수동 스와이프 방어막 상태 관리 변수
   const touchStartX = useRef<number>(0)
   const touchEndX = useRef<number>(0)
 
@@ -215,6 +214,21 @@ export default function ProductPage() {
       incrementViews(post.id)
     }
   }, [post, pushRecent, incrementViews])
+
+  // 🟢 안전망 갤러리 맵핑 (오류 났던 부분 완벽 방어형으로 리팩토링)
+  const gallery = useMemo(() => {
+    if (!post) return []
+    if (Array.isArray(post.images) && post.images.length > 0) {
+      return post.images.filter(Boolean)
+    }
+    if (Array.isArray(post.image)) {
+      return post.image.filter(Boolean)
+    }
+    if (post.image) {
+      return [post.image]
+    }
+    return []
+  }, [post])
 
   if (ready && !post) {
     return (
@@ -330,15 +344,6 @@ export default function ProductPage() {
     ? post.comments.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0)
     : 0
 
-  const gallery = post
-    ? post.images && post.images.length > 0
-      ? post.images
-      : post.image
-        ? [post.image]
-        : []
-    : []
-
-  // 🟢 슬라이더 스크롤 실행 함수
   const scrollToImage = (index: number) => {
     if (!scrollContainerRef.current) return
     const containerWidth = scrollContainerRef.current.clientWidth
@@ -359,7 +364,6 @@ export default function ProductPage() {
     scrollToImage(nextIndex)
   }
 
-  // 🟢 [수정] 모바일 드래그 터치 이벤트 직접 가로채서 딱 1장만 제어하기
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX
   }
@@ -370,22 +374,20 @@ export default function ProductPage() {
 
   const handleTouchEnd = () => {
     const diffX = touchStartX.current - touchEndX.current
-    const sensitivity = 40 // 터치 민감도 설정
+    const sensitivity = 40
 
     if (Math.abs(diffX) > sensitivity) {
       if (diffX > 0) {
-        // 슥 왼쪽으로 밀었을 때 ➡️ 다음 사진 딱 1장만 이동
         if (activeImage < gallery.length - 1) {
           scrollToImage(activeImage + 1)
         } else {
-          scrollToImage(activeImage) // 바운스 방지 고정
+          scrollToImage(activeImage)
         }
       } else {
-        // 슥 오른쪽으로 밀었을 때 ➡️ 이전 사진 딱 1장만 이동
         if (activeImage > 0) {
           scrollToImage(activeImage - 1)
         } else {
-          scrollToImage(activeImage) // 바운스 방지 고정
+          scrollToImage(activeImage)
         }
       }
     }
@@ -410,7 +412,6 @@ export default function ProductPage() {
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted group">
                 
                 {gallery.length > 0 ? (
-                  /* 🟢 [수정] 스크롤 관성을 차단하고 터치 좌표 핸들러 인터랙션을 추가한 1장 제한 슬라이더 박스 */
                   <div
                     ref={scrollContainerRef}
                     onTouchStart={handleTouchStart}
@@ -418,13 +419,13 @@ export default function ProductPage() {
                     onTouchEnd={handleTouchEnd}
                     className="flex h-full w-full overflow-x-hidden scroll-smooth"
                   >
-                    {gallery.map((img, idx) => (
-                      <div key={idx} className="relative h-full w-full shrink-0">
+                    {gallery.map((imgUrl, imageIdx) => (
+                      <div key={imageIdx} className="relative h-full w-full shrink-0">
                         <Image
-                          src={img || "/placeholder.svg"}
-                          alt={`${post.title} 사진 ${idx + 1}`}
+                          src={imgUrl || "/placeholder.svg"}
+                          alt={`${post.title} 사진 ${imageIdx + 1}`}
                           fill
-                          priority={idx === 0}
+                          priority={imageIdx === 0}
                           className="object-cover select-none pointer-events-none"
                         />
                       </div>
@@ -436,7 +437,6 @@ export default function ProductPage() {
                   </div>
                 )}
 
-                {/* PC용 화살표 제어판 */}
                 {gallery.length > 1 && (
                   <>
                     <button
@@ -456,22 +456,20 @@ export default function ProductPage() {
                       <ChevronRight className="size-5" />
                     </button>
                     
-                    {/* 카운트 인디케이터 */}
                     <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-[2px]">
                       {activeImage + 1} / {gallery.length}
                     </span>
                     
-                    {/* 동그라미 인디케이터 */}
                     <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-                      {gallery.map((_, i) => (
+                      {gallery.map((_, dotIdx) => (
                         <button
-                          key={i}
+                          key={dotIdx}
                           type="button"
-                          onClick={() => scrollToImage(i)}
-                          aria-label={`${i + 1}번째 사진으로 이동`}
+                          onClick={() => scrollToImage(dotIdx)}
+                          aria-label={`${dotIdx + 1}번째 사진으로 이동`}
                           className={cn(
                             "size-1.5 rounded-full transition-all duration-300",
-                            i === activeImage ? "w-3 bg-background" : "bg-background/50",
+                            dotIdx === activeImage ? "w-3 bg-background" : "bg-background/50",
                           )}
                         />
                       ))}
@@ -479,7 +477,6 @@ export default function ProductPage() {
                   </>
                 )}
 
-                {/* 상태창 */}
                 {post.status !== "판매중" && (
                   <div className="absolute inset-0 flex items-center justify-center bg-foreground/45 pointer-events-none">
                     <span
@@ -659,7 +656,6 @@ export default function ProductPage() {
             </div>
           </div>
 
-          {/* 댓글 구역 */}
           <section className="mt-10 border-t border-border pt-6">
             <h2 className="mb-4 text-base font-semibold text-foreground">댓글 {totalComments}</h2>
 
@@ -703,7 +699,6 @@ export default function ProductPage() {
         </main>
       )}
 
-      {/* 모달 팝업들 생략 없이 보존 */}
       {shareOpen && post && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button

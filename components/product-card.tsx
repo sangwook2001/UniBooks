@@ -21,6 +21,8 @@ export function ProductCard({ post }: { post: Post }) {
           <img
             src={post.image || "/placeholder.svg"}
             alt={post.title}
+            loading="lazy"
+            decoding="async"
             className="size-full object-cover transition group-hover:scale-105"
           />
         ) : (
