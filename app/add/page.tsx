@@ -17,6 +17,7 @@ import {
 import { formatNumberInput, parseNumber } from "@/lib/format"
 import { compressImage } from "@/lib/image"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 
 // 🟢 1. 최상단 메인 컴포넌트 (Vercel 빌드 패스용 Suspense 방어막)
 export default function AddPage() {
@@ -103,15 +104,31 @@ function AddPageContent({ editId }: { editId: string | null }) {
       setCondition(editingPost.condition)
       setOpenChat(editingPost.openChatUrl)
       setDescription(editingPost.description ?? "")
-      setImages(
-        editingPost.images && editingPost.images.length > 0
-          ? editingPost.images
-          : editingPost.image
-            ? [editingPost.image]
-            : [],
-      )
+      
     }
   }, [editingPost])
+
+  useEffect(() => {
+    if (!editId) return
+    let active = true
+    const supabase = createClient()
+    supabase
+      .from("posts")
+      .select("image,images")
+      .eq("id", editId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active || !data) return
+        if (data.images && (data.images as string[]).length > 0) {
+          setImages(data.images as string[])
+        } else if (data.image) {
+          setImages([data.image as string])
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [editId])
 
   const showDeptGrade = category === "전공" || category === "교양"
 
