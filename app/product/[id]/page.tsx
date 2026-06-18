@@ -322,6 +322,15 @@ export default function ProductPage() {
     router.push(`/add?edit=${post.id}`)
   }
 
+  function handleBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back()
+    } else {
+      router.replace("/")
+    }
+  }
+
+
   function handleContact() {
     if (!post) return
     if (!post.openChatUrl) {
@@ -397,9 +406,14 @@ export default function ProductPage() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
-          <Link href="/" aria-label="뒤로가기" className="rounded-md p-1 hover:bg-muted">
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label="뒤로가기"
+            className="rounded-md p-1 hover:bg-muted"
+          >
             <ArrowLeft className="size-5" />
-          </Link>
+          </button>
           <span className="text-lg font-semibold text-foreground">상품 정보</span>
         </div>
       </header>
