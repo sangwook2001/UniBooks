@@ -67,6 +67,14 @@ export default function AdminPage() {
     router.replace("/")
   }
 
+   function handleBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back()
+    } else {
+      router.replace("/")
+    }
+  }
+
   function handleDeletePost(id: string, title: string) {
     if (window.confirm(`"${title}" 상품을 삭제할까요? 되돌릴 수 없습니다.`)) {
       deletePost(id)
@@ -79,9 +87,14 @@ export default function AdminPage() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
-          <Link href="/" aria-label="홈으로" className="rounded-md p-1 hover:bg-muted">
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label="뒤로가기"
+            className="rounded-md p-1 hover:bg-muted"
+          >
             <ArrowLeft className="size-5" />
-          </Link>
+          </button>
           <span className="flex items-center gap-2 text-lg font-semibold text-foreground">
             <ShieldCheck className="size-5 text-primary" />
             관리자 대시보드

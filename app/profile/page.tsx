@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { ArrowLeft, User, LogOut, GraduationCap, Mail, Package, Heart, AlertTriangle } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { ProductCard } from "@/components/product-card"
@@ -34,6 +33,14 @@ export default function ProfilePage() {
     router.replace("/")
   }
 
+  function handleBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back()
+    } else {
+      router.replace("/")
+    }
+  }
+
   async function handleDeleteAccount() {
     setDeleting(true)
     setDeleteError("")
@@ -52,9 +59,14 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card">
         <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-4 sm:px-6">
-          <Link href="/" aria-label="뒤로가기" className="rounded-md p-1 hover:bg-muted">
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label="뒤로가기"
+            className="rounded-md p-1 hover:bg-muted"
+          >
             <ArrowLeft className="size-5" />
-          </Link>
+          </button>
           <h1 className="text-lg font-semibold text-foreground">마이페이지</h1>
           <button
             type="button"
