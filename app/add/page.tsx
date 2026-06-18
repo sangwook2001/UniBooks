@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, ImagePlus, Star, X } from "lucide-react"
+import { ArrowLeft, ImagePlus, X } from "lucide-react"
 import { useStore } from "@/lib/store"
 import {
   CATEGORIES,
@@ -113,17 +113,6 @@ export default function AddPage() {
     setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // 선택한 사진을 맨 앞(대표)으로 이동
-  function setAsCover(index: number) {
-    setImages((prev) => {
-      if (index <= 0 || index >= prev.length) return prev
-      const next = [...prev]
-      const [picked] = next.splice(index, 1)
-      next.unshift(picked)
-      return next
-    })
-  }
-
   // 필수: 사진, 제목, 저자, 가격, 분류, 상태, 오픈채팅 링크 + (전공/교양일 때 학과/교양분류·학년). 설명은 선택.
   const missing =
     images.length === 0 ||
@@ -200,27 +189,12 @@ export default function AddPage() {
             />
             <div className="flex flex-wrap gap-2">
               {images.map((img, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "relative size-24 overflow-hidden rounded-lg border",
-                    i === 0 ? "border-2 border-primary" : "border-border",
-                  )}
-                >
+                <div key={i} className="relative size-24 overflow-hidden rounded-lg border border-border">
                   <Image src={img || "/placeholder.svg"} alt={`사진 ${i + 1}`} fill className="object-cover" />
-                  {i === 0 ? (
-                    <span className="absolute left-1 top-1 flex items-center gap-0.5 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                      <Star className="size-2.5 fill-current" />
+                  {i === 0 && (
+                    <span className="absolute left-1 top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
                       대표
                     </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setAsCover(i)}
-                      className="absolute inset-x-1 bottom-1 rounded bg-foreground/70 py-0.5 text-[10px] font-medium text-background hover:bg-foreground"
-                    >
-                      대표로 지정
-                    </button>
                   )}
                   <button
                     type="button"
@@ -243,9 +217,7 @@ export default function AddPage() {
                 </button>
               )}
             </div>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              대표 사진이 목록과 홈 화면에 표시됩니다. &lsquo;대표로 지정&rsquo;을 눌러 바꿀 수 있어요.
-            </p>
+            <p className="mt-1.5 text-xs text-muted-foreground">첫 번째 사진이 대표 이미지로 사용됩니다.</p>
           </Field>
 
           {/* 제목 */}
