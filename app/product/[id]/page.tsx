@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
+import { createClient } from "@/lib/supabase/client"
 import {
   ArrowLeft,
   BookOpen,
@@ -200,8 +201,28 @@ export default function ProductPage() {
   const [reportDetail, setReportDetail] = useState("")
   const [comment, setComment] = useState("")
   const [activeImage, setActiveImage] = useState(0)
+  const [fetchedImages, setFetchedImages] = useState<string[] | null>(null)
   const touchStartX = useRef<number | null>(null)
   const viewedRef = useRef(false)
+
+  // 상세 페이지에서만 전체 사진(images 배열)을 불러온다(목록은 대표 이미지만 로드).
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+    supabase
+      .from("posts")
+      .select("images")
+      .eq("id", params.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active && data?.images && data.images.length > 0) {
+          setFetchedImages(data.images as string[])
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [params.id])
 
   useEffect(() => {
     if (post && !viewedRef.current) {
@@ -328,13 +349,13 @@ export default function ProductPage() {
     ? post.comments.reduce((n, c) => n + 1 + (c.replies?.length ?? 0), 0)
     : 0
 
-  const gallery = post
-    ? post.images && post.images.length > 0
-      ? post.images
-      : post.image
-        ? [post.image]
-        : []
-    : []
+  // 우선순위: 상세에서 별도로 불러온 전체 사진 > 스토어의 images > 대표 이미지
+  const gallery = useMemo(() => {
+    if (fetchedImages && fetchedImages.length > 0) return fetchedImages
+    if (!post) return []
+    if (post.images && post.images.length > 0) return post.images
+    return post.image ? [post.image] : []
+  }, [fetchedImages, post])
 
   const goPrev = () => setActiveImage((i) => (i === 0 ? gallery.length - 1 : i - 1))
   const goNext = () => setActiveImage((i) => (i === gallery.length - 1 ? 0 : i + 1))
@@ -461,7 +482,7 @@ export default function ProductPage() {
 
             {/* 오른쪽: 정보 */}
             <div className="flex w-full flex-col md:w-1/2">
-              {/* 상단: 학과 · 학년 */}
+              {/* ��단: 학과 · 학년 */}
               <span className="inline-block w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
                 {postTag(post)}
                 {post.grade ? ` · ${post.grade}` : ""}

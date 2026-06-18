@@ -236,9 +236,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   userRef.current = user
 
   // 게시글 + 댓글 불러오기
+  // 목록/카드는 대표 이미지(image)만 필요하므로, 용량이 큰 images 배열은 제외해
+  // 로딩 속도를 크게 개선한다. 상세 페이지에서 images를 별도로 불러온다.
   const loadPosts = useCallback(async () => {
     const [{ data: postRows }, { data: commentRows }] = await Promise.all([
-      supabase.from("posts").select("*").order("created_at", { ascending: false }),
+      supabase
+        .from("posts")
+        .select(
+          "id,title,author,price,condition,category,department,liberal_group,grade,description,image,school,seller_id,seller_nickname,open_chat_url,status,views,likes,created_at",
+        )
+        .order("created_at", { ascending: false }),
       supabase.from("comments").select("*"),
     ])
     const commentsByPost = buildComments((commentRows as CommentRow[]) ?? [])
