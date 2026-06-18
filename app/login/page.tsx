@@ -41,14 +41,24 @@ export default function LoginPage() {
     router.push(isAdmin ? "/admin" : "/")
   }
 
+  // 뒤로가기: 히스토리를 새로 쌓지 않고 이전 페이지로 돌아간다.
+  // 직접 진입 등으로 히스토리가 없으면 홈으로 대체 이동한다.
+  function handleBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back()
+    } else {
+      router.replace("/")
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
           <button
             type="button"
-            onClick={() => router.push("/")}
-            aria-label="홈으로"
+            onClick={handleBack}
+            aria-label="뒤로가기"
             className="rounded-md p-1 hover:bg-muted"
           >
             <ArrowLeft className="size-5" />

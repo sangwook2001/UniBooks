@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
 import Image from "next/image"
 import { ArrowLeft, ImagePlus, X } from "lucide-react"
 import { useStore } from "@/lib/store"
@@ -124,6 +123,16 @@ export default function AddPage() {
     (category === "교양" && !liberalGroup) ||
     (showDeptGrade && !grade)
 
+  // 뒤로가기: 히스토리를 새로 쌓지 않고 이전 페이지로 돌아간다.
+  // 직접 진입 등으로 히스토리가 없으면 홈으로 대체 이동한다.
+  function handleBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back()
+    } else {
+      router.replace("/")
+    }
+  }
+
   async function handleSubmit() {
     setSubmitted(true)
     if (missing) return
@@ -155,9 +164,14 @@ export default function AddPage() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card">
         <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 py-4 sm:px-6">
-          <Link href="/" aria-label="뒤로가기" className="rounded-md p-1 hover:bg-muted">
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label="뒤로가기"
+            className="rounded-md p-1 hover:bg-muted"
+          >
             <ArrowLeft className="size-5" />
-          </Link>
+          </button>
           <h1 className="text-lg font-semibold text-foreground">{isEdit ? "상품 수정하기" : "중고책 등록하기"}</h1>
         </div>
       </header>
