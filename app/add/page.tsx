@@ -17,6 +17,7 @@ import {
 import { formatNumberInput, parseNumber } from "@/lib/format"
 import { compressImage } from "@/lib/image"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 
 export default function AddPage() {
   const router = useRouter()
@@ -83,15 +84,34 @@ export default function AddPage() {
       setCondition(editingPost.condition)
       setOpenChat(editingPost.openChatUrl)
       setDescription(editingPost.description ?? "")
-      setImages(
-        editingPost.images && editingPost.images.length > 0
-          ? editingPost.images
-          : editingPost.image
-            ? [editingPost.image]
-            : [],
-      )
+      // 사진(images)은 아래 전용 DB fetch가 단독으로 채운다.
+      // (목록 쿼리는 용량 절약을 위해 대표 이미지만 불러오므로 여기서 채우면 일부만 보임)
     }
   }, [editingPost])
+
+  // 수정 모드: 전체 사진(images 배열)을 DB에서 직접 다시 불러와 모든 사진이 보이도록 한다.
+  // 사진 상태는 이 효과가 단독으로 관리하여 prefill과의 경쟁으로 덮어쓰는 일을 막는다.
+  useEffect(() => {
+    if (!editId) return
+    let active = true
+    const supabase = createClient()
+    supabase
+      .from("posts")
+      .select("image,images")
+      .eq("id", editId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active || !data) return
+        if (data.images && (data.images as string[]).length > 0) {
+          setImages(data.images as string[])
+        } else if (data.image) {
+          setImages([data.image as string])
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [editId])
 
   const showDeptGrade = category === "전공" || category === "교양"
 
