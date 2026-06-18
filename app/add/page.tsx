@@ -66,6 +66,8 @@ export default function AddPage() {
   const [description, setDescription] = useState("")
   const [images, setImages] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
+  // 수정 모드에서 DB의 전체 사진을 다 불러왔는지 여부 (로딩 중 저장으로 사진이 사라지는 것 방지)
+  const [editImagesLoaded, setEditImagesLoaded] = useState(false)
   const prefilledRef = useRef(false)
 
   const MAX_IMAGES = 5
@@ -101,12 +103,13 @@ export default function AddPage() {
       .eq("id", editId)
       .maybeSingle()
       .then(({ data }) => {
-        if (!active || !data) return
-        if (data.images && (data.images as string[]).length > 0) {
+        if (!active) return
+        if (data?.images && (data.images as string[]).length > 0) {
           setImages(data.images as string[])
-        } else if (data.image) {
+        } else if (data?.image) {
           setImages([data.image as string])
         }
+        setEditImagesLoaded(true)
       })
     return () => {
       active = false
@@ -156,6 +159,11 @@ export default function AddPage() {
   async function handleSubmit() {
     setSubmitted(true)
     if (missing) return
+    // 수정 모드: DB의 기존 사진을 다 불러오기 전에는 저장을 막아 사진이 줄어드는 것을 방지
+    if (isEdit && editId && !editImagesLoaded) {
+      window.alert("사진을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.")
+      return
+    }
     const data = {
       title: title.trim(),
       author: author.trim(),
