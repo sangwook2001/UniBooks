@@ -74,6 +74,7 @@ type StoreContextType = {
   isAdmin: boolean
   login: (email: string, password: string) => Promise<AuthResult>
   logout: () => Promise<void>
+  deleteAccount: () => Promise<{ ok: boolean; error?: string }>
   registerUser: (email: string, password: string, nickname: string, school: string) => Promise<AuthResult>
   isNicknameTaken: (nickname: string) => boolean
   posts: Post[]
@@ -374,6 +375,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLikedIds([])
     setReports([])
   }, [supabase])
+
+  const deleteAccount = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    const res = await fetch("/api/account/delete", { method: "POST" })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      return { ok: false, error: body.error ?? "탈퇴에 실패했습니다." }
+    }
+    await supabase.auth.signOut().catch(() => {})
+    setUser(null)
+    setLikedIds([])
+    setReports([])
+    setPosts((prev) => prev.filter((p) => p.sellerId !== user?.id))
+    return { ok: true }
+  }, [supabase, user?.id])
 
   const registerUser = useCallback(
     async (email: string, password: string, nickname: string, userSchool: string): Promise<AuthResult> => {
@@ -761,6 +776,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       isAdmin: !!user?.isAdmin,
       login,
       logout,
+      deleteAccount,
       registerUser,
       isNicknameTaken,
       posts,
@@ -791,6 +807,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       user,
       login,
       logout,
+      deleteAccount,
       registerUser,
       isNicknameTaken,
       posts,

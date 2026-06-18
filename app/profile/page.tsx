@@ -1,15 +1,18 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, User, LogOut, GraduationCap, Mail, Package, Heart } from "lucide-react"
+import { ArrowLeft, User, LogOut, GraduationCap, Mail, Package, Heart, AlertTriangle } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { ProductCard } from "@/components/product-card"
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { ready, user, logout, posts, likedIds } = useStore()
+  const { ready, user, logout, deleteAccount, posts, likedIds } = useStore()
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
 
   useEffect(() => {
     if (ready && !user) {
@@ -29,6 +32,18 @@ export default function ProfilePage() {
   function handleLogout() {
     logout()
     router.replace("/")
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+    setDeleteError("")
+    const res = await deleteAccount()
+    if (res.ok) {
+      router.replace("/")
+    } else {
+      setDeleteError(res.error ?? "탈퇴에 실패했습니다.")
+      setDeleting(false)
+    }
   }
 
   if (!user) return null
@@ -123,7 +138,55 @@ export default function ProfilePage() {
             </div>
           )}
         </section>
+
+        {/* 계정 관리 */}
+        <section className="border-t border-border pb-12 pt-6">
+          <button
+            type="button"
+            onClick={() => setShowDelete(true)}
+            className="text-sm font-medium text-muted-foreground hover:text-destructive"
+          >
+            회원 탈퇴
+          </button>
+        </section>
       </main>
+
+      {/* 회원 탈퇴 확인 다이얼로그 */}
+      {showDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-lg">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="size-5" />
+              <h3 className="text-base font-semibold">회원 탈퇴</h3>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              탈퇴하면 내가 올린 상품, 찜 목록, 댓글 등 모든 데이터가 삭제되며 복구할 수 없습니다. 정말 탈퇴하시겠습니까?
+            </p>
+            {deleteError && <p className="mt-3 text-sm text-destructive">{deleteError}</p>}
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDelete(false)
+                  setDeleteError("")
+                }}
+                disabled={deleting}
+                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-semibold text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {deleting ? "처리 중..." : "탈퇴하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
