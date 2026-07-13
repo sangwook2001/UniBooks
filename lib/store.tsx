@@ -257,10 +257,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // 닉네임 목록(중복 체크용)
   const loadNicknames = useCallback(async () => {
     const { data } = await supabase.from("profiles").select("nickname")
-    setNicknames(((data as { nickname: string }[]) ?? []).map((d) => d.nickname))
+    setNicknames(
+      ((data as { nickname: string | null }[]) ?? [])
+        .map((d) => d.nickname)
+        .filter((n): n is string => typeof n === "string" && n.length > 0),
+    )
   }, [supabase])
 
-  // 로그인 사���자 관련 데이터(프로필/찜/신고)
   const loadUserData = useCallback(
     async (authUser: { id: string; email?: string }) => {
       const { data: profile } = await supabase
@@ -418,7 +421,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const isNicknameTaken = useCallback(
     (nickname: string) => {
       const n = nickname.trim().toLowerCase()
-      return nicknames.some((x) => x.toLowerCase() === n)
+      return nicknames.some((x) => typeof x === "string" && x.toLowerCase() === n)
     },
     [nicknames],
   )
